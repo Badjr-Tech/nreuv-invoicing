@@ -168,19 +168,23 @@ interface AccountRequestData {
 
 export async function requestAccount(data: AccountRequestData) {
   // In a real application, you would:
-  // 1. Validate data more thoroughly
-  // 2. Store this request in a database (e.g., a new `account_requests` table)
-  // 3. Notify an administrator (e.g., via email)
-  // 4. Implement rate limiting to prevent spam
+  // 1. Validate data more thoroughly (e.g., check for existing email)
+  // 2. Notify an administrator (e.g., via email)
+  // 3. Implement rate limiting to prevent spam
 
   if (!data.email || !data.name || !data.message) {
     throw new Error("Missing required fields for account request.");
   }
 
-  console.log("New account request received:", data);
+  // Insert the request into the accountRequests table
+  await db.insert(schema.accountRequests).values({
+    name: data.name,
+    email: data.email,
+    message: data.message,
+  });
 
-  // Simulate storing the request or sending an email
-  // For now, we just log it and return success.
+  revalidatePath("/admin/account-requests"); // Revalidate admin page for requests
+
   return { success: true, message: "Account request submitted successfully." };
 }
 
