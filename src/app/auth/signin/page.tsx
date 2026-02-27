@@ -1,4 +1,5 @@
 import { signIn } from "@/auth";
+import Link from "next/link";
 
 export default function SignInPage() {
   return (
@@ -37,10 +38,16 @@ export default function SignInPage() {
         </div>
         <button
           type="submit"
-          className="bg-dark-red hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full"
+          style={{ backgroundColor: '#730404' }} // Direct inline style
+          className="hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full"
         >
           Sign In
         </button>
+        <div className="text-center mt-4">
+          <Link href="/auth/request-account" className="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
+            Request New Account
+          </Link>
+        </div>
       </form>
     </div>
   );

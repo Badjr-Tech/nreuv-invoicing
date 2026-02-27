@@ -96,7 +96,7 @@ export default async function Sidebar() {
           </button>
         </form>
       ) : (
-        <Link href="/auth/signin" className="absolute bottom-4 block py-2.5 px-4 rounded transition duration-200 hover:bg-red-700 w-full text-left">
+        <Link href="/auth/signin" className="absolute bottom-4 block py-2.5 px-4 rounded transition duration-200 bg-dark-red text-white hover:bg-red-700 w-full text-left">
           Sign In
         </Link>
       )}

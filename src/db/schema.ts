@@ -86,6 +86,14 @@ export const notifications = pgTable("notification", {
     .references(() => users.id),
 });
 
+export const accountRequests = pgTable("account_request", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  message: text("message"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   invoices: many(invoices),
