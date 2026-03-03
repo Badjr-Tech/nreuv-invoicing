@@ -4,8 +4,11 @@ import React, { useState } from "react";
 import {
   createOrUpdateInvoiceDeadlineSetting,
   createOrUpdatePaymentSchedule,
+  addAllowedInvoiceDate,
+  deleteAllowedInvoiceDate,
 } from "@/app/actions";
 import { invoiceRecurrenceEnum } from "@/db/schema"; // Assuming this enum is accessible client-side
+import { useRouter } from "next/navigation";
 
 type RecurrenceType = typeof invoiceRecurrenceEnum.enumValues[number];
 
@@ -21,21 +24,31 @@ interface PaymentSchedule {
   daysDue: number;
 }
 
+interface AllowedDate {
+  id: string;
+  date: Date;
+  description: string | null;
+}
+
 interface AdminSettingsClientProps {
   initialDeadlineSettings: DeadlineSetting[];
   initialPaymentSchedules: PaymentSchedule[];
+  initialAllowedDates: AllowedDate[];
 }
 
 export default function AdminSettingsClient({
   initialDeadlineSettings,
   initialPaymentSchedules,
+  initialAllowedDates,
 }: AdminSettingsClientProps) {
+  const router = useRouter();
   const [deadlineSettings, setDeadlineSettings] = useState<DeadlineSetting[]>(
     initialDeadlineSettings
   );
   const [paymentSchedules, setPaymentSchedules] = useState<PaymentSchedule[]>(
     initialPaymentSchedules
   );
+  const [allowedDates, setAllowedDates] = useState<AllowedDate[]>(initialAllowedDates);
 
   // State for new deadline setting form
   const [newRecurrence, setNewRecurrence] = useState<RecurrenceType>("MONTHLY");
@@ -46,6 +59,10 @@ export default function AdminSettingsClient({
   // State for new payment schedule form
   const [newScheduleName, setNewScheduleName] = useState<string>("");
   const [newScheduleDaysDue, setNewScheduleDaysDue] = useState<number>(0);
+
+  // State for new allowed invoice date form
+  const [newAllowedDate, setNewAllowedDate] = useState<string>("");
+  const [newAllowedDateDescription, setNewAllowedDateDescription] = useState<string>("");
 
   const handleSaveDeadlineSetting = async () => {
     try {
@@ -80,9 +97,83 @@ export default function AdminSettingsClient({
     }
   };
 
+  const handleAddAllowedDate = async () => {
+    try {
+      if (!newAllowedDate) return;
+      await addAllowedInvoiceDate(new Date(newAllowedDate), newAllowedDateDescription || undefined);
+      router.refresh(); // Refresh the page to get updated list
+      setNewAllowedDate("");
+      setNewAllowedDateDescription("");
+    } catch (error: any) {
+      alert(`Error adding allowed date: ${error.message}`);
+    }
+  };
+
+  const handleDeleteAllowedDate = async (id: string) => {
+    try {
+      await deleteAllowedInvoiceDate(id);
+      router.refresh();
+    } catch (error: any) {
+      alert(`Error deleting allowed date: ${error.message}`);
+    }
+  };
+
   return (
     <div className="p-4">
       <h1 className="text-2xl font-bold text-black mb-4">Admin Settings</h1>
+
+      {/* Allowed Invoice Dates */}
+      <div className="bg-white shadow-md rounded-lg p-4 mb-6">
+        <h2 className="text-xl font-semibold text-black mb-4">
+          Allowed Invoice Dates
+        </h2>
+        <p className="text-sm text-gray-600 mb-4">
+          If any dates are added here, contractors will ONLY be able to select these specific dates when creating or editing an invoice.
+        </p>
+        <div className="mb-4">
+          {allowedDates.map((date) => (
+            <div key={date.id} className="mb-2 p-2 border rounded flex justify-between items-center bg-gray-50">
+              <div>
+                <span className="font-semibold">{new Date(date.date).toLocaleDateString()}</span>
+                {date.description && <span className="ml-2 text-gray-600">- {date.description}</span>}
+              </div>
+              <button
+                onClick={() => handleDeleteAllowedDate(date.id)}
+                className="text-red-500 hover:text-red-700 text-sm font-medium"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          {allowedDates.length === 0 && (
+            <p className="text-gray-500 italic text-sm">No specific dates enforced. Contractors can pick any date.</p>
+          )}
+        </div>
+        <h3 className="text-lg font-medium text-black mb-2">
+          Add New Allowed Date
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="date"
+            className="border p-2 rounded"
+            value={newAllowedDate}
+            onChange={(e) => setNewAllowedDate(e.target.value)}
+          />
+          <input
+            type="text"
+            className="border p-2 rounded flex-1 min-w-[200px]"
+            placeholder="Description (e.g. Q1 Billing)"
+            value={newAllowedDateDescription}
+            onChange={(e) => setNewAllowedDateDescription(e.target.value)}
+          />
+          <button
+            onClick={handleAddAllowedDate}
+            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          >
+            Add Date
+          </button>
+        </div>
+      </div>
 
       {/* Invoice Deadline Settings */}
       <div className="bg-white shadow-md rounded-lg p-4 mb-6">

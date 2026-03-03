@@ -106,6 +106,12 @@ export const accountRequests = pgTable("account_request", {
   processedAt: timestamp("processed_at", { mode: "date" }), // New column to store processing time
 });
 
+export const allowedInvoiceDates = pgTable("allowed_invoice_date", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  date: timestamp("date", { mode: "date" }).notNull().unique(),
+  description: text("description"), // Optional description like "Q1 2026"
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   invoices: many(invoices),

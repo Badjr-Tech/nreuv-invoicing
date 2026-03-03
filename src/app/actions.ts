@@ -2,7 +2,7 @@
 
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { invoices, invoiceItems, paymentSchedules, invoiceDeadlineSettings, invoiceRecurrenceEnum, notifications, accountRequests, users, InsertUser } from "@/db/schema";
+import { invoices, invoiceItems, paymentSchedules, invoiceDeadlineSettings, invoiceRecurrenceEnum, notifications, accountRequests, users, InsertUser, allowedInvoiceDates } from "@/db/schema";
 import bcrypt from "bcryptjs";
 import { and, eq, desc, asc, gte, lte, inArray, notInArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -10,19 +10,40 @@ import InvoicePdfDocument from "@/lib/pdf-generator";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { addDays, format } from "date-fns";
 
-// ... (existing interfaces for NewInvoiceItem, NewInvoiceData, UpdateInvoiceItem, UpdateInvoiceData)
-
 // New interfaces for deadline and payment schedule settings
 interface CreateOrUpdateInvoiceDeadlineSettingData {
-  id?: string; // Optional for creation
-  recurrence: typeof invoiceRecurrenceEnum.enumValues[number];
+  id?: string;
+  recurrence: "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "CUSTOM";
   customIntervalDays?: number;
 }
 
 interface CreateOrUpdatePaymentScheduleData {
-  id?: string; // Optional for creation
+  id?: string;
   name: string;
   daysDue: number;
+}
+
+export async function addAllowedInvoiceDate(date: Date, description?: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can manage allowed dates.");
+  }
+  await db.insert(allowedInvoiceDates).values({
+    date,
+    description,
+  });
+  revalidatePath("/admin/settings");
+  revalidatePath("/invoices/new");
+}
+
+export async function deleteAllowedInvoiceDate(id: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can manage allowed dates.");
+  }
+  await db.delete(allowedInvoiceDates).where(eq(allowedInvoiceDates.id, id));
+  revalidatePath("/admin/settings");
+  revalidatePath("/invoices/new");
 }
 
 // ... (existing createInvoice, updateInvoice, updateInvoiceStatus, generateInvoicePdf, generateInvoicesCsv functions)
@@ -487,16 +508,11 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
 export async function updateInvoiceStatus(invoiceId: string, newStatus: "SENT" | "APPROVED") {
   const session = await auth();
 
-  if (!session?.user) {
+  if (!session?.user?.id) {
     throw new Error("Unauthorized");
   }
 
-  const { role } = session.user;
-
-  if (role !== "ADMIN" && role !== "PAYROLL_MANAGER") {
-    throw new Error("Forbidden: Only Admin or Payroll Manager can update invoice status.");
-  }
-
+  const { role, id: userId } = session.user;
 
   const invoiceRecord = await db.query.invoices.findFirst({
     where: eq(invoices.id, invoiceId),
@@ -504,6 +520,16 @@ export async function updateInvoiceStatus(invoiceId: string, newStatus: "SENT" |
 
   if (!invoiceRecord) {
     throw new Error("Invoice not found.");
+  }
+
+  if (newStatus === "APPROVED") {
+    if (role !== "ADMIN" && role !== "PAYROLL_MANAGER") {
+      throw new Error("Forbidden: Only Admin or Payroll Manager can approve invoices.");
+    }
+  } else if (newStatus === "SENT") {
+    if (role !== "ADMIN" && role !== "PAYROLL_MANAGER" && invoiceRecord.userId !== userId) {
+      throw new Error("Forbidden: You can only submit your own invoices.");
+    }
   }
 
   // Define allowed status transitions

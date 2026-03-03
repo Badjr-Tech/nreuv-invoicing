@@ -48,14 +48,14 @@ export default async function Sidebar() {
               </Link>
             </li>
           )}
-          {session?.user?.role === "USER" && (
+          {(session?.user?.role === "USER" || session?.user?.role === "EMPLOYEE") && (
             <li>
               <Link href="/my-invoices" className="block py-2.5 px-4 rounded transition duration-200 hover:bg-black/20">
                 My Invoices
               </Link>
             </li>
           )}
-          {session?.user?.role === "USER" && (
+          {(session?.user?.role === "USER" || session?.user?.role === "EMPLOYEE") && (
             <li>
               <Link href="/invoices/new" className="block py-2.5 px-4 rounded transition duration-200 hover:opacity-90 bg-nreuv-accent font-semibold mt-4 text-center">
                 + Create Invoice

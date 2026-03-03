@@ -29,11 +29,11 @@ export default auth((req: any) => {
 
   // Check role-based access for authenticated users
   if (isLoggedIn) {
-    if (userRole === "USER") {
+    if (userRole === "USER" || userRole === "EMPLOYEE") {
       if (nextUrl.pathname === "/" || userRoutes.some(route => nextUrl.pathname.startsWith(route))) {
         return NextResponse.next();
       }
-      // If a USER tries to access an unauthorized route, redirect to their dashboard
+      // If a USER or EMPLOYEE tries to access an unauthorized route, redirect to their dashboard
       return NextResponse.redirect(new URL("/", nextUrl));
     }
 

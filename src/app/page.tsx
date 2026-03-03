@@ -19,7 +19,7 @@ export default async function HomePage() {
     return <PayrollManagerDashboard />;
   }
 
-  if (session.user.role === "USER") {
+  if (session.user.role === "USER" || session.user.role === "EMPLOYEE") {
     return <UserDashboard />;
   }
 

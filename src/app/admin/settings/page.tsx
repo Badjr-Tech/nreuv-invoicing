@@ -1,8 +1,9 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { invoiceDeadlineSettings, paymentSchedules } from "@/db/schema";
+import { invoiceDeadlineSettings, paymentSchedules, allowedInvoiceDates } from "@/db/schema";
 import { redirect } from "next/navigation";
 import AdminSettingsClient from "./AdminSettingsClient";
+import { asc } from "drizzle-orm";
 
 async function getAdminSettingsData() {
   const session = await auth();
@@ -13,17 +14,21 @@ async function getAdminSettingsData() {
 
   const existingDeadlineSettings = await db.query.invoiceDeadlineSettings.findMany();
   const existingPaymentSchedules = await db.query.paymentSchedules.findMany();
+  const existingAllowedDates = await db.query.allowedInvoiceDates.findMany({
+    orderBy: [asc(allowedInvoiceDates.date)]
+  });
 
-  return { existingDeadlineSettings, existingPaymentSchedules };
+  return { existingDeadlineSettings, existingPaymentSchedules, existingAllowedDates };
 }
 
 export default async function AdminSettingsPage() {
-  const { existingDeadlineSettings, existingPaymentSchedules } = await getAdminSettingsData();
+  const { existingDeadlineSettings, existingPaymentSchedules, existingAllowedDates } = await getAdminSettingsData();
 
   return (
     <AdminSettingsClient
       initialDeadlineSettings={existingDeadlineSettings}
       initialPaymentSchedules={existingPaymentSchedules}
+      initialAllowedDates={existingAllowedDates}
     />
   );
 }
