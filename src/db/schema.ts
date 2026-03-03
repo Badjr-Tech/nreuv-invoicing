@@ -8,9 +8,9 @@ import {
   real,
   integer,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, type InferInsertModel } from "drizzle-orm";
 
-export const roleEnum = pgEnum("role", ["USER", "ADMIN", "PAYROLL_MANAGER"]);
+export const roleEnum = pgEnum("role", ["USER", "ADMIN", "PAYROLL_MANAGER", "EMPLOYEE"]);
 export const invoiceRecurrenceEnum = pgEnum("invoice_recurrence", [
   "WEEKLY",
   "BIWEEKLY",
@@ -23,13 +23,22 @@ export const invoiceStatusEnum = pgEnum("invoice_status", [
   "APPROVED",
 ]);
 
+export const accountRequestStatusEnum = pgEnum("account_request_status", [
+  "PENDING",
+  "APPROVED",
+  "DENIED",
+]);
+
 export const users = pgTable("user", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
-  name: text("name"),
+  name: text("name").notNull(), // Made name not null
   role: roleEnum("role").default("USER").notNull(),
+  emailVerified: timestamp("email_verified", { mode: "date" }), // Added emailVerified
 });
+
+export type InsertUser = InferInsertModel<typeof users>;
 
 export const invoiceDeadlineSettings = pgTable("invoice_deadline_settings", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -90,8 +99,11 @@ export const accountRequests = pgTable("account_request", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  password: text("password"), // Made nullable
   message: text("message"),
+  status: accountRequestStatusEnum("status").default("PENDING").notNull(),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  processedAt: timestamp("processed_at", { mode: "date" }), // New column to store processing time
 });
 
 // Relations

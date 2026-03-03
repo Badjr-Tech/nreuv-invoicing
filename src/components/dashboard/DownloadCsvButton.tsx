@@ -28,7 +28,7 @@ export default function DownloadCsvButton() {
   return (
     <button
       onClick={handleDownloadCsv}
-      className="bg-dark-red hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+      className="bg-nreuv-primary hover:opacity-90 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-nreuv-accent focus:ring-offset-2 transition-colors disabled:opacity-50 flex items-center shadow-sm"
     >
       Export CSV
     </button>

@@ -1,0 +1,1 @@
+ALTER TABLE "account_request" ADD COLUMN "password" text NOT NULL;

@@ -3,49 +3,54 @@ import Link from "next/link";
 
 export default function SignInPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-light-gray">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <form
         action={async (formData) => {
           "use server";
           await signIn("credentials", formData);
         }}
-        className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm"
+        className="bg-white p-8 rounded-xl shadow-lg w-full max-w-sm border border-slate-100"
       >
-        <h1 className="text-2xl font-bold text-black mb-6 text-center">Sign In</h1>
-        <div className="mb-4">
-          <label htmlFor="email" className="block text-black text-sm font-bold mb-2">
-            Email:
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Welcome Back</h1>
+          <p className="text-sm text-slate-500 mt-2">Sign in to your account</p>
+        </div>
+        
+        <div className="mb-5">
+          <label htmlFor="email" className="block text-slate-700 text-sm font-semibold mb-2">
+            Email Address
           </label>
           <input
             type="email"
             id="email"
             name="email"
             required
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-black leading-tight focus:outline-none focus:shadow-outline"
+            className="appearance-none border border-slate-300 rounded-lg w-full py-3 px-4 text-slate-800 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+            placeholder="you@example.com"
           />
         </div>
         <div className="mb-6">
-          <label htmlFor="password" className="block text-black text-sm font-bold mb-2">
-            Password:
+          <label htmlFor="password" className="block text-slate-700 text-sm font-semibold mb-2">
+            Password
           </label>
           <input
             type="password"
             id="password"
             name="password"
             required
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-black mb-3 leading-tight focus:outline-none focus:shadow-outline"
+            className="appearance-none border border-slate-300 rounded-lg w-full py-3 px-4 text-slate-800 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+            placeholder="••••••••"
           />
         </div>
         <button
           type="submit"
-          style={{ backgroundColor: '#730404' }} // Direct inline style
-          className="hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full"
+          className="bg-nreuv-primary hover:opacity-90 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-nreuv-accent focus:ring-offset-2 w-full transition-colors shadow-md"
         >
           Sign In
         </button>
-        <div className="text-center mt-4">
-          <Link href="/auth/request-account" className="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
-            Request New Account
+        <div className="text-center mt-6">
+          <Link href="/auth/request-account" className="inline-block align-baseline font-medium text-sm text-nreuv-primary hover:text-nreuv-accent transition-colors">
+            Request an Account
           </Link>
         </div>
       </form>

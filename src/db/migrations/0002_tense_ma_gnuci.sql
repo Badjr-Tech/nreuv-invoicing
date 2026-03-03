@@ -1,0 +1,1 @@
+ALTER TABLE "account_request" ALTER COLUMN "password" DROP NOT NULL;

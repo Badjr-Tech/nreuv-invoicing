@@ -25,7 +25,7 @@ export default function DownloadPdfButton({ invoiceId }: { invoiceId: string }) 
   return (
     <button
       onClick={handleDownloadPdf}
-      className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-xs"
+      className="bg-nreuv-primary hover:opacity-90 text-white font-medium py-1 px-3 rounded text-xs transition-colors shadow-sm"
     >
       Download PDF
     </button>

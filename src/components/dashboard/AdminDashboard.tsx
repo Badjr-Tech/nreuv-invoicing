@@ -52,7 +52,8 @@ async function getAllUsersWithNotificationCounts() {
       name: users.name,
       email: users.email,
       unreadNotifications: sql<number>`(SELECT count(*) FROM ${notifications} WHERE ${notifications.userId} = ${users.id} AND ${notifications.read} = FALSE)`
-    }).from(users);
+    }).from(users)
+    .where(sql`${users.role} != 'ADMIN'`);
 
     return usersWithCounts.map(u => ({
       ...u,

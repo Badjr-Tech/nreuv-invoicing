@@ -2,7 +2,8 @@
 
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { invoices, invoiceItems, paymentSchedules, invoiceDeadlineSettings, invoiceRecurrenceEnum, notifications } from "@/db/schema";
+import { invoices, invoiceItems, paymentSchedules, invoiceDeadlineSettings, invoiceRecurrenceEnum, notifications, accountRequests, users, InsertUser } from "@/db/schema";
+import bcrypt from "bcryptjs";
 import { and, eq, desc, asc, gte, lte, inArray, notInArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import InvoicePdfDocument from "@/lib/pdf-generator";
@@ -177,7 +178,7 @@ export async function requestAccount(data: AccountRequestData) {
   }
 
   // Insert the request into the accountRequests table
-  await db.insert(schema.accountRequests).values({
+  await db.insert(accountRequests).values({
     name: data.name,
     email: data.email,
     message: data.message,
@@ -186,6 +187,84 @@ export async function requestAccount(data: AccountRequestData) {
   revalidatePath("/admin/account-requests"); // Revalidate admin page for requests
 
   return { success: true, message: "Account request submitted successfully." };
+}
+
+// Function to approve an account request
+export async function approveAccountRequest(requestId: string) {
+  const session = await auth();
+
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can approve account requests.");
+  }
+
+  const request = await db.query.accountRequests.findFirst({
+    where: eq(accountRequests.id, requestId),
+  });
+
+  if (!request) {
+    throw new Error("Account request not found.");
+  }
+
+  if (request.status !== "PENDING") {
+    throw new Error("Only pending requests can be approved.");
+  }
+
+  await db.transaction(async (tx) => {
+    // 1. Create a new user with a temporary password
+    // In a real app, you'd send an email to the user to set their password.
+    const tempPassword = Math.random().toString(36).slice(-10); // Generate a random string
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    await tx.insert(users).values({
+      name: request.name,
+      email: request.email,
+      password: hashedPassword,
+      role: "USER", // Default role for approved accounts
+      emailVerified: new Date(), // Mark as verified since admin approved
+    });
+
+    // 2. Update the account request status
+    await tx
+      .update(accountRequests)
+      .set({ status: "APPROVED", processedAt: new Date() })
+      .where(eq(accountRequests.id, requestId));
+  });
+
+  revalidatePath("/admin/account-requests"); // Revalidate the admin account requests page
+  revalidatePath("/admin/users"); // Revalidate the admin users page
+  
+  // TODO: Send email to the user with their temporary password and instructions to set a new one.
+  return { success: true, message: "Account request approved and user created." };
+}
+
+// Function to deny an account request
+export async function denyAccountRequest(requestId: string) {
+  const session = await auth();
+
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can deny account requests.");
+  }
+
+  const request = await db.query.accountRequests.findFirst({
+    where: eq(accountRequests.id, requestId),
+  });
+
+  if (!request) {
+    throw new Error("Account request not found.");
+  }
+
+  if (request.status !== "PENDING") {
+    throw new Error("Only pending requests can be denied.");
+  }
+
+  await db
+    .update(accountRequests)
+    .set({ status: "DENIED", processedAt: new Date() })
+    .where(eq(accountRequests.id, requestId));
+
+  revalidatePath("/admin/account-requests"); // Revalidate the admin account requests page
+
+  return { success: true, message: "Account request denied." };
 }
 
 interface NewInvoiceItem {
@@ -562,4 +641,68 @@ export async function generateInvoicesCsv(searchParams?: {
   ].join("\n");
 
   return csvContent;
+}
+
+export async function updateUserRole(userId: string, newRole: "ADMIN" | "PAYROLL_MANAGER" | "USER" | "EMPLOYEE") {
+  const session = await auth();
+
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can manage users.");
+  }
+
+  // Ensure we don't accidentally remove the last admin
+  if (newRole !== "ADMIN") {
+    const adminCountResponse = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(eq(users.role, "ADMIN"));
+    
+    const adminCount = Number(adminCountResponse[0].count);
+    const targetUser = await db.query.users.findFirst({ where: eq(users.id, userId) });
+
+    if (targetUser?.role === "ADMIN" && adminCount <= 1) {
+      throw new Error("Cannot change the role of the last admin.");
+    }
+  }
+
+  await db.update(users).set({ role: newRole }).where(eq(users.id, userId));
+  revalidatePath("/admin/users");
+}
+
+export async function addUserManually(data: any) {
+  const session = await auth();
+
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can add users manually.");
+  }
+
+  if (!data.email || !data.name || !data.password) {
+    throw new Error("Missing required fields for new user.");
+  }
+
+  if (data.password.length < 8) {
+    throw new Error("Password must be at least 8 characters long.");
+  }
+
+  // Check if email already exists
+  const existingUser = await db.query.users.findFirst({
+    where: eq(users.email, data.email),
+  });
+
+  if (existingUser) {
+    throw new Error("A user with this email already exists.");
+  }
+
+  const hashedPassword = await bcrypt.hash(data.password, 10);
+
+  const [newUser] = await db.insert(users).values({
+    name: data.name,
+    email: data.email,
+    password: hashedPassword,
+    role: data.role || "EMPLOYEE",
+    emailVerified: new Date(), // Auto-verify manually added users
+  } as InsertUser).returning();
+
+  revalidatePath("/admin/users");
+  return newUser;
 }

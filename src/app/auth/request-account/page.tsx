@@ -15,7 +15,7 @@ export default function RequestAccountPage() {
     e.preventDefault();
     setIsSubmitting(true);
     setSubmissionStatus(null);
-    
+
     try {
       await requestAccount({ email, name, message });
       setSubmissionStatus("success");
@@ -88,12 +88,12 @@ export default function RequestAccountPage() {
           <div className="flex items-center justify-between">
             <button
               type="submit"
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+              className="bg-nreuv-primary hover:opacity-90 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-nreuv-accent transition-colors shadow-sm"
               disabled={isSubmitting}
             >
               {isSubmitting ? "Submitting..." : "Request Account"}
             </button>
-            <Link href="/auth/signin" className="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
+            <Link href="/auth/signin" className="inline-block align-baseline font-bold text-sm text-nreuv-primary hover:text-nreuv-accent transition-colors">
               Back to Sign In
             </Link>
           </div>

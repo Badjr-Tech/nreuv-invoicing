@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 
-const publicRoutes = ["/auth/signin"];
+const publicRoutes = ["/auth/signin", "/auth/request-account"]; // Added /auth/request-account
 const userRoutes = ["/my-invoices", "/invoices/new"];
 const payrollManagerRoutes = ["/invoices"];
 const adminRoutes = ["/admin/users", "/admin/settings"];
@@ -13,9 +13,10 @@ export default auth((req: any) => {
 
   const isPublicRoute = publicRoutes.includes(nextUrl.pathname);
 
+  // Allow public routes
   if (isPublicRoute) {
     if (isLoggedIn) {
-      // If logged in and trying to access a public route, redirect to home or dashboard
+      // If logged in and trying to access a public route, redirect to home
       return NextResponse.redirect(new URL("/", nextUrl));
     }
     return NextResponse.next();
@@ -26,29 +27,32 @@ export default auth((req: any) => {
     return NextResponse.redirect(new URL("/auth/signin", nextUrl));
   }
 
-  // Check role-based access for protected routes
-  if (userRole === "USER") {
-    if (userRoutes.some(route => nextUrl.pathname.startsWith(route))) {
+  // Check role-based access for authenticated users
+  if (isLoggedIn) {
+    if (userRole === "USER") {
+      if (nextUrl.pathname === "/" || userRoutes.some(route => nextUrl.pathname.startsWith(route))) {
+        return NextResponse.next();
+      }
+      // If a USER tries to access an unauthorized route, redirect to their dashboard
+      return NextResponse.redirect(new URL("/", nextUrl));
+    }
+
+    if (userRole === "PAYROLL_MANAGER") {
+      if (nextUrl.pathname === "/" || payrollManagerRoutes.some(route => nextUrl.pathname.startsWith(route)) || userRoutes.some(route => nextUrl.pathname.startsWith(route))) {
+        return NextResponse.next();
+      }
+      // If a PAYROLL_MANAGER tries to access an unauthorized route, redirect to their dashboard
+      return NextResponse.redirect(new URL("/", nextUrl));
+    }
+
+    if (userRole === "ADMIN") {
+      // ADMINs have full access, no specific route checks needed here as they can access all
+      // We will assume that any route not caught by previous conditions is accessible to ADMIN
       return NextResponse.next();
     }
-    return NextResponse.redirect(new URL("/", nextUrl));
   }
 
-  if (userRole === "PAYROLL_MANAGER") {
-    if (payrollManagerRoutes.some(route => nextUrl.pathname.startsWith(route)) || userRoutes.some(route => nextUrl.pathname.startsWith(route))) {
-      return NextResponse.next();
-    }
-    return NextResponse.redirect(new URL("/", nextUrl));
-  }
-
-  if (userRole === "ADMIN") {
-    if (adminRoutes.some(route => nextUrl.pathname.startsWith(route)) || payrollManagerRoutes.some(route => nextUrl.pathname.startsWith(route)) || userRoutes.some(route => nextUrl.pathname.startsWith(route))) {
-      return NextResponse.next();
-    }
-    return NextResponse.redirect(new URL("/", nextUrl));
-  }
-
-  // Default to redirect to home if no specific role matches or route is not handled
+  // Default redirect for any other case (e.g., authenticated user without a recognized role, or route not covered)
   return NextResponse.redirect(new URL("/", nextUrl));
 });
 

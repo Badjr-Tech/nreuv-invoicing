@@ -49,7 +49,9 @@ async function getAllInvoices(
 }
 
 async function getAllUsers() {
-    return db.query.users.findMany(); // Fetch all users (without notification counts for now)
+    return db.query.users.findMany({
+      where: (users, { ne }) => ne(users.role, "ADMIN"),
+    }); // Fetch non-admin users for the sidebar
 }
 
 export default async function PayrollManagerDashboard({

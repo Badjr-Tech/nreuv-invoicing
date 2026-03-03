@@ -17,14 +17,14 @@ interface EmployeeSidebarProps {
 export default function EmployeeSidebar({ users }: EmployeeSidebarProps) {
   return (
     <div className="w-64 bg-gray-50 p-4 shadow-md rounded-lg">
-      <h2 className="text-xl font-semibold text-gray-800 mb-4">Employees</h2>
+      <h2 className="text-xl font-semibold text-gray-800 mb-4">Contractors</h2>
       <ul>
         {users.map((user) => (
           <li key={user.id} className="mb-2">
-            <Link href={`?filterUser=${user.id}`} className="flex justify-between items-center text-blue-600 hover:underline">
+            <Link href={`?filterUser=${user.id}`} className="flex justify-between items-center text-nreuv-primary hover:text-nreuv-accent hover:underline transition-colors">
               {user.name || user.email}
               {user.unreadNotifications > 0 && (
-                <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                <span className="bg-nreuv-accent text-white text-xs font-bold px-2 py-1 rounded-full">
                   {user.unreadNotifications}
                 </span>
               )}

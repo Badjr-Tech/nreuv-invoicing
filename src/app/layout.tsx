@@ -20,7 +20,7 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="flex h-screen bg-light-gray">
+        <div className="flex h-screen bg-slate-50">
           {session?.user && <Sidebar />}
           <main className="flex-1 overflow-y-auto p-4">
             {children}
