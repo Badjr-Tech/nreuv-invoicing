@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { updateUserRole, updateUserRate, updateUserManager } from "@/app/actions";
 import AddUserModal from "./AddUserModal";
+import ResetPasswordModal from "./ResetPasswordModal";
 
 export default function AdminUsersClient({ initialUsers, potentialManagers }: { initialUsers: any[], potentialManagers: any[] }) {
   const [users, setUsers] = useState(initialUsers);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [resetPasswordUser, setResetPasswordUser] = useState<any | null>(null);
 
   const handleRoleChange = async (userId: string, newRole: "ADMIN" | "PAYROLL_MANAGER" | "USER" | "EMPLOYEE") => {
     setIsUpdating(userId);
@@ -80,6 +82,9 @@ export default function AdminUsersClient({ initialUsers, potentialManagers }: { 
             <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Manager
             </th>
+            <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -140,6 +145,14 @@ export default function AdminUsersClient({ initialUsers, potentialManagers }: { 
                   <span className="text-slate-400 italic">N/A</span>
                 )}
               </td>
+              <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
+                <button
+                  onClick={() => setResetPasswordUser(user)}
+                  className="text-nreuv-primary hover:text-nreuv-accent font-medium text-xs border border-nreuv-primary hover:border-nreuv-accent rounded px-2 py-1 transition-colors"
+                >
+                  Reset Password
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -150,6 +163,13 @@ export default function AdminUsersClient({ initialUsers, potentialManagers }: { 
       <AddUserModal 
         onClose={() => setIsAddModalOpen(false)} 
         onUserAdded={handleUserAdded} 
+      />
+    )}
+
+    {resetPasswordUser && (
+      <ResetPasswordModal
+        user={resetPasswordUser}
+        onClose={() => setResetPasswordUser(null)}
       />
     )}
   </>

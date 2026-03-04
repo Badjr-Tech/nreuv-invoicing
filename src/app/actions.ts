@@ -755,6 +755,22 @@ export async function updateUserManager(userId: string, managerId: string | null
   revalidatePath("/admin/users");
 }
 
+export async function resetUserPassword(userId: string, newPassword: string) {
+  const session = await auth();
+
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can reset passwords.");
+  }
+
+  if (newPassword.length < 8) {
+    throw new Error("Password must be at least 8 characters long.");
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
+  revalidatePath("/admin/users");
+}
+
 export async function addUserManually(data: any) {
   const session = await auth();
 
