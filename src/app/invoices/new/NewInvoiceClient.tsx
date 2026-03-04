@@ -158,7 +158,7 @@ export default function NewInvoiceClient({ paymentSchedules, categories, allowed
           <div className="space-y-4">
             {items.map((item, index) => (
               <div key={index} className="flex flex-wrap md:flex-nowrap gap-4 items-start p-4 border border-slate-200 rounded-lg bg-slate-50">
-                <div className="w-full md:w-1/5">
+                <div className="w-full md:w-1/6">
                   <label className="block text-xs font-medium text-slate-500 mb-1">Date</label>
                   <input
                     type="date"
@@ -169,7 +169,7 @@ export default function NewInvoiceClient({ paymentSchedules, categories, allowed
                   />
                 </div>
                 
-                <div className="w-full md:w-2/5">
+                <div className="w-full md:w-1/4">
                   <label className="block text-xs font-medium text-slate-500 mb-1">Description</label>
                   <input
                     type="text"
@@ -181,7 +181,7 @@ export default function NewInvoiceClient({ paymentSchedules, categories, allowed
                   />
                 </div>
                 
-                <div className="w-1/3 md:w-1/5">
+                <div className="w-1/3 md:w-1/6">
                   <label className="block text-xs font-medium text-slate-500 mb-1">Category</label>
                   <select
                     value={item.categoryId}
@@ -195,7 +195,7 @@ export default function NewInvoiceClient({ paymentSchedules, categories, allowed
                   </select>
                 </div>
 
-                <div className="w-1/4 md:w-1/5">
+                <div className="w-1/4 md:w-1/6">
                   <label className="block text-xs font-medium text-slate-500 mb-1">Hours</label>
                   <input
                     type="number"
@@ -205,6 +205,17 @@ export default function NewInvoiceClient({ paymentSchedules, categories, allowed
                     value={item.hours || ''}
                     onChange={(e) => handleItemChange(index, 'hours', parseFloat(e.target.value))}
                     className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none"
+                  />
+                </div>
+
+                <div className="w-1/4 md:w-1/6">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Rate ($)</label>
+                  <input
+                    type="number"
+                    readOnly
+                    value={hourlyRate}
+                    className="w-full border border-slate-200 rounded-md p-2 bg-slate-100 text-slate-500 outline-none cursor-not-allowed"
+                    title="Assigned by Admin"
                   />
                 </div>
 

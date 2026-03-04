@@ -138,7 +138,7 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
           <button
             onClick={() => handleStatusChange("PENDING_ADMIN")}
             disabled={isUpdating}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+            className="px-6 py-2.5 bg-nreuv-primary hover:opacity-90 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
           >
             {isUpdating ? "Pre-Approving..." : "Pre-Approve Invoice"}
           </button>

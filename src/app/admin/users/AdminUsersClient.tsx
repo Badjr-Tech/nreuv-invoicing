@@ -105,7 +105,7 @@ export default function AdminUsersClient({ initialUsers, potentialManagers }: { 
                         handleRateChange(user.id, newRate);
                       }
                     }}
-                    disabled={isUpdating === user.id}
+                    disabled={isUpdating === user.id || user.role === "ADMIN"}
                     className="border border-slate-300 rounded-lg p-2 w-24 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50"
                   />
                 </div>

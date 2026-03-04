@@ -174,7 +174,7 @@ export default function AdminSettingsClient({
           />
           <button
             onClick={handleAddAllowedDate}
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            className="bg-nreuv-primary hover:opacity-90 text-white font-bold py-2 px-4 rounded"
           >
             Add Date
           </button>
@@ -223,7 +223,7 @@ export default function AdminSettingsClient({
           )}
           <button
             onClick={handleSaveDeadlineSetting}
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            className="bg-nreuv-primary hover:opacity-90 text-white font-bold py-2 px-4 rounded"
           >
             Save Deadline Setting
           </button>
@@ -262,7 +262,7 @@ export default function AdminSettingsClient({
           />
           <button
             onClick={handleSavePaymentSchedule}
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            className="bg-nreuv-primary hover:opacity-90 text-white font-bold py-2 px-4 rounded"
           >
             Save Payment Schedule
           </button>
