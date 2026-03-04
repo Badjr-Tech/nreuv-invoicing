@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { invoices, paymentSchedules, categories, allowedInvoiceDates } from "@/db/schema";
+import { invoices, paymentSchedules, categories, allowedInvoiceDates, users } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import EditInvoiceClient from "./EditInvoiceClient";
@@ -58,6 +58,10 @@ export default async function EditInvoicePage({ params }: { params: { id: string
   const dbCategories = await db.select().from(categories);
   const dbAllowedDates = await db.select().from(allowedInvoiceDates).orderBy(asc(allowedInvoiceDates.date));
 
+  const userRecord = await db.query.users.findFirst({
+    where: eq(users.id, invoice.userId),
+  });
+
   return (
     <div className="p-4 md:p-8">
       <EditInvoiceClient
@@ -65,6 +69,7 @@ export default async function EditInvoicePage({ params }: { params: { id: string
         paymentSchedules={dbPaymentSchedules}
         categories={dbCategories}
         allowedDates={dbAllowedDates}
+        hourlyRate={userRecord?.hourlyRate || 0}
       />
     </div>
   );

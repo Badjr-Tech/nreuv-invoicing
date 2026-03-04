@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   tableColHeader: {
-    width: "25%",
+    width: "20%",
     borderStyle: "solid",
     borderBottomWidth: 1,
     borderColor: "#bababa",
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   tableCol: {
-    width: "25%",
+    width: "20%",
     borderStyle: "solid",
     borderBottomWidth: 1,
     borderColor: "#bababa",
@@ -83,6 +83,7 @@ interface InvoicePdfProps {
   invoice: Invoice & {
     user: { name: string | null; email: string };
     items: {
+      date: Date | string;
       description: string;
       hours: number;
       rate: number;
@@ -108,6 +109,7 @@ const InvoicePdfDocument = ({ invoice }: InvoicePdfProps) => (
 
       <View style={styles.table}>
         <View style={styles.tableRow}>
+          <Text style={styles.tableColHeader}>Date</Text>
           <Text style={styles.tableColHeader}>Description</Text>
           <Text style={styles.tableColHeader}>Hours</Text>
           <Text style={styles.tableColHeader}>Rate</Text>
@@ -115,6 +117,7 @@ const InvoicePdfDocument = ({ invoice }: InvoicePdfProps) => (
         </View>
         {invoice.items.map((item, index) => (
           <View style={styles.tableRow} key={index}>
+            <Text style={styles.tableCol}>{new Date(item.date).toLocaleDateString()}</Text>
             <Text style={styles.tableCol}>{item.description}</Text>
             <Text style={styles.tableCol}>{item.hours}</Text>
             <Text style={styles.tableCol}>${item.rate.toFixed(2)}</Text>

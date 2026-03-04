@@ -289,9 +289,9 @@ export async function denyAccountRequest(requestId: string) {
 }
 
 interface NewInvoiceItem {
+  date: Date;
   description: string;
   hours: number;
-  rate: number;
   categoryId?: string;
 }
 
@@ -325,6 +325,15 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
   }
 
   const userId = session.user.id;
+  const userRecord = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+  });
+
+  if (!userRecord) {
+    throw new Error("User not found.");
+  }
+  
+  const userRate = userRecord.hourlyRate;
 
   // Fetch payment schedule to calculate due date
   const paymentSchedule = await db.query.paymentSchedules.findFirst({
@@ -341,11 +350,11 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
   let totalCost = 0;
 
   for (const item of invoiceData.items) {
-    if (item.hours <= 0 || item.rate <= 0) {
-      throw new Error("Invoice item hours and rate must be positive numbers.");
+    if (item.hours <= 0) {
+      throw new Error("Invoice item hours must be a positive number.");
     }
     totalHours += item.hours;
-    totalCost += item.hours * item.rate;
+    totalCost += item.hours * userRate;
   }
 
   const [newInvoice] = await db.transaction(async (tx) => {
@@ -368,6 +377,7 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
 
     const itemsToInsert = invoiceData.items.map((item) => ({
       ...item,
+      rate: userRate,
       invoiceId: invoice.id,
     }));
 
@@ -399,6 +409,15 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
   }
 
   const userId = session.user.id;
+  const userRecord = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+  });
+
+  if (!userRecord) {
+    throw new Error("User not found.");
+  }
+  
+  const userRate = userRecord.hourlyRate;
 
   // Fetch existing invoice and check permissions
   const existingInvoice = await db.query.invoices.findFirst({
@@ -435,11 +454,11 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
   let newTotalCost = 0;
 
   for (const item of invoiceData.items) {
-    if (item.hours <= 0 || item.rate <= 0) {
-      throw new Error("Invoice item hours and rate must be positive numbers.");
+    if (item.hours <= 0) {
+      throw new Error("Invoice item hours must be a positive number.");
     }
     newTotalHours += item.hours;
-    newTotalCost += item.hours * item.rate;
+    newTotalCost += item.hours * userRate;
   }
 
   await db.transaction(async (tx) => {
@@ -481,9 +500,10 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
         await tx
           .update(invoiceItems)
           .set({
+            date: item.date,
             description: item.description,
             hours: item.hours,
-            rate: item.rate,
+            rate: userRate,
             categoryId: item.categoryId || null,
           })
           .where(and(eq(invoiceItems.id, item.id), eq(invoiceItems.invoiceId, invoiceData.id)));
@@ -491,9 +511,10 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
         // Insert new item
         await tx.insert(invoiceItems).values({
           invoiceId: invoiceData.id,
+          date: item.date,
           description: item.description,
           hours: item.hours,
-          rate: item.rate,
+          rate: userRate,
           categoryId: item.categoryId || null,
         });
       }
@@ -505,7 +526,7 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
   revalidatePath("/"); // Revalidate the home page
 }
 
-export async function updateInvoiceStatus(invoiceId: string, newStatus: "SENT" | "APPROVED") {
+export async function updateInvoiceStatus(invoiceId: string, newStatus: "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED") {
   const session = await auth();
 
   if (!session?.user?.id) {
@@ -516,6 +537,7 @@ export async function updateInvoiceStatus(invoiceId: string, newStatus: "SENT" |
 
   const invoiceRecord = await db.query.invoices.findFirst({
     where: eq(invoices.id, invoiceId),
+    with: { user: true },
   });
 
   if (!invoiceRecord) {
@@ -523,20 +545,29 @@ export async function updateInvoiceStatus(invoiceId: string, newStatus: "SENT" |
   }
 
   if (newStatus === "APPROVED") {
-    if (role !== "ADMIN" && role !== "PAYROLL_MANAGER") {
-      throw new Error("Forbidden: Only Admin or Payroll Manager can approve invoices.");
+    if (role !== "ADMIN") {
+      throw new Error("Forbidden: Only Admin can finalize approval of invoices.");
     }
-  } else if (newStatus === "SENT") {
+  } else if (newStatus === "PENDING_ADMIN") {
+    if (role === "PAYROLL_MANAGER" && invoiceRecord.user.managerId !== userId) {
+      throw new Error("Forbidden: You are not the manager for this employee.");
+    }
     if (role !== "ADMIN" && role !== "PAYROLL_MANAGER" && invoiceRecord.userId !== userId) {
+      throw new Error("Forbidden: You can only submit your own invoices.");
+    }
+  } else if (newStatus === "PENDING_MANAGER") {
+    if (invoiceRecord.userId !== userId) {
       throw new Error("Forbidden: You can only submit your own invoices.");
     }
   }
 
   // Define allowed status transitions
   const allowedTransitions: Record<string, string[]> = {
-    DRAFT: ["SENT"],
-    SENT: ["APPROVED"],
+    DRAFT: ["PENDING_MANAGER", "PENDING_ADMIN"], // PENDING_ADMIN if no manager
+    PENDING_MANAGER: ["PENDING_ADMIN"],
+    PENDING_ADMIN: ["APPROVED"],
     APPROVED: [], // Once approved, it's permanently locked
+    SENT: ["PENDING_ADMIN", "APPROVED"], // For backward compatibility with older "SENT" status
   };
 
   if (!allowedTransitions[invoiceRecord.status].includes(newStatus)) {
@@ -546,8 +577,11 @@ export async function updateInvoiceStatus(invoiceId: string, newStatus: "SENT" |
   let updateData: any = { status: newStatus };
   if (newStatus === "APPROVED") {
     updateData.approvedDate = new Date();
-  } else if (newStatus === "SENT") {
-    updateData.submittedDate = new Date();
+  } else if (newStatus === "PENDING_MANAGER" || newStatus === "PENDING_ADMIN") {
+    // Only set submittedDate if it's the first time submitting
+    if (invoiceRecord.status === "DRAFT") {
+      updateData.submittedDate = new Date();
+    }
   }
 
   await db.update(invoices).set(updateData).where(eq(invoices.id, invoiceId));
@@ -692,6 +726,32 @@ export async function updateUserRole(userId: string, newRole: "ADMIN" | "PAYROLL
   }
 
   await db.update(users).set({ role: newRole }).where(eq(users.id, userId));
+  revalidatePath("/admin/users");
+}
+
+export async function updateUserRate(userId: string, newRate: number) {
+  const session = await auth();
+
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can manage users.");
+  }
+
+  if (newRate < 0) {
+    throw new Error("Rate cannot be negative.");
+  }
+
+  await db.update(users).set({ hourlyRate: newRate }).where(eq(users.id, userId));
+  revalidatePath("/admin/users");
+}
+
+export async function updateUserManager(userId: string, managerId: string | null) {
+  const session = await auth();
+
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can manage users.");
+  }
+
+  await db.update(users).set({ managerId: managerId }).where(eq(users.id, userId));
   revalidatePath("/admin/users");
 }
 

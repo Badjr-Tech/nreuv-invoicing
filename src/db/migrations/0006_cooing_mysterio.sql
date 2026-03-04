@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "hourly_rate" real DEFAULT 0 NOT NULL;

@@ -50,6 +50,12 @@ export default function AdminSettingsClient({
   );
   const [allowedDates, setAllowedDates] = useState<AllowedDate[]>(initialAllowedDates);
 
+  React.useEffect(() => {
+    setDeadlineSettings(initialDeadlineSettings);
+    setPaymentSchedules(initialPaymentSchedules);
+    setAllowedDates(initialAllowedDates);
+  }, [initialDeadlineSettings, initialPaymentSchedules, initialAllowedDates]);
+
   // State for new deadline setting form
   const [newRecurrence, setNewRecurrence] = useState<RecurrenceType>("MONTHLY");
   const [newCustomInterval, setNewCustomInterval] = useState<number | undefined>(

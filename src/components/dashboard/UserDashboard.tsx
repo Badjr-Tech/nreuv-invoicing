@@ -115,13 +115,21 @@ export default async function UserDashboard() {
                   <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                     <span
                       className={`relative inline-block px-3 py-1 font-semibold leading-tight ${
-                        invoice.status === "DRAFT" ? "text-yellow-900" : invoice.status === "SENT" ? "text-blue-900" : "text-green-900"
+                        invoice.status === "DRAFT" ? "text-yellow-900" :
+                        invoice.status === "PENDING_MANAGER" ? "text-purple-900" :
+                        invoice.status === "PENDING_ADMIN" ? "text-blue-900" :
+                        invoice.status === "SENT" ? "text-blue-900" :
+                        "text-green-900"
                       }`}
                     >
                       <span
                         aria-hidden
                         className={`absolute inset-0 opacity-50 rounded-full ${
-                          invoice.status === "DRAFT" ? "bg-yellow-200" : invoice.status === "SENT" ? "bg-blue-200" : "bg-green-200"
+                          invoice.status === "DRAFT" ? "bg-yellow-200" :
+                          invoice.status === "PENDING_MANAGER" ? "bg-purple-200" :
+                          invoice.status === "PENDING_ADMIN" ? "bg-blue-200" :
+                          invoice.status === "SENT" ? "bg-blue-200" :
+                          "bg-green-200"
                         }`}
                       ></span>
                       <span className="relative">{invoice.status}</span>

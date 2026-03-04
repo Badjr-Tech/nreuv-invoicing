@@ -25,9 +25,10 @@ interface NewInvoiceClientProps {
   paymentSchedules: PaymentSchedule[];
   categories: Category[];
   allowedDates: AllowedDate[];
+  hourlyRate: number;
 }
 
-export default function NewInvoiceClient({ paymentSchedules, categories, allowedDates }: NewInvoiceClientProps) {
+export default function NewInvoiceClient({ paymentSchedules, categories, allowedDates, hourlyRate }: NewInvoiceClientProps) {
   const router = useRouter();
   const [invoiceDate, setInvoiceDate] = useState(
     allowedDates.length > 0 
@@ -35,12 +36,12 @@ export default function NewInvoiceClient({ paymentSchedules, categories, allowed
       : new Date().toISOString().split('T')[0]
   );
   const [paymentScheduleId, setPaymentScheduleId] = useState(paymentSchedules[0]?.id || "");
-  const [items, setItems] = useState([{ description: '', hours: 0, rate: 0, categoryId: '' }]);
+  const [items, setItems] = useState([{ date: new Date().toISOString().split('T')[0], description: '', hours: 0, categoryId: '' }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleAddItem = () => {
-    setItems([...items, { description: '', hours: 0, rate: 0, categoryId: '' }]);
+    setItems([...items, { date: new Date().toISOString().split('T')[0], description: '', hours: 0, categoryId: '' }]);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -59,16 +60,18 @@ export default function NewInvoiceClient({ paymentSchedules, categories, allowed
     setError(null);
 
     try {
-      const validItems = items.filter(item => item.description.trim() !== '' && item.hours > 0 && item.rate > 0);
+      const validItems = items.filter(item => item.description.trim() !== '' && item.hours > 0 && item.date);
       if (validItems.length === 0) {
-        throw new Error("Please add at least one valid item with description, hours, and rate.");
+        throw new Error("Please add at least one valid item with date, description, and hours.");
       }
 
       await createInvoice({
         invoiceDate: new Date(invoiceDate),
         paymentScheduleId,
         items: validItems.map(item => ({
-          ...item,
+          date: new Date(item.date),
+          description: item.description,
+          hours: item.hours,
           categoryId: item.categoryId || undefined,
         })),
       });
@@ -155,6 +158,17 @@ export default function NewInvoiceClient({ paymentSchedules, categories, allowed
           <div className="space-y-4">
             {items.map((item, index) => (
               <div key={index} className="flex flex-wrap md:flex-nowrap gap-4 items-start p-4 border border-slate-200 rounded-lg bg-slate-50">
+                <div className="w-full md:w-1/5">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={item.date}
+                    onChange={(e) => handleItemChange(index, 'date', e.target.value)}
+                    className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none"
+                  />
+                </div>
+                
                 <div className="w-full md:w-2/5">
                   <label className="block text-xs font-medium text-slate-500 mb-1">Description</label>
                   <input
@@ -167,7 +181,7 @@ export default function NewInvoiceClient({ paymentSchedules, categories, allowed
                   />
                 </div>
                 
-                <div className="w-1/3 md:w-1/6">
+                <div className="w-1/3 md:w-1/5">
                   <label className="block text-xs font-medium text-slate-500 mb-1">Category</label>
                   <select
                     value={item.categoryId}
@@ -181,7 +195,7 @@ export default function NewInvoiceClient({ paymentSchedules, categories, allowed
                   </select>
                 </div>
 
-                <div className="w-1/4 md:w-1/6">
+                <div className="w-1/4 md:w-1/5">
                   <label className="block text-xs font-medium text-slate-500 mb-1">Hours</label>
                   <input
                     type="number"
@@ -190,19 +204,6 @@ export default function NewInvoiceClient({ paymentSchedules, categories, allowed
                     step="0.1"
                     value={item.hours || ''}
                     onChange={(e) => handleItemChange(index, 'hours', parseFloat(e.target.value))}
-                    className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none"
-                  />
-                </div>
-
-                <div className="w-1/4 md:w-1/6">
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Rate ($)</label>
-                  <input
-                    type="number"
-                    required
-                    min="0.01"
-                    step="0.01"
-                    value={item.rate || ''}
-                    onChange={(e) => handleItemChange(index, 'rate', parseFloat(e.target.value))}
                     className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none"
                   />
                 </div>
@@ -224,7 +225,7 @@ export default function NewInvoiceClient({ paymentSchedules, categories, allowed
           </div>
           
           <div className="mt-4 flex justify-end text-lg font-bold text-slate-800">
-            Total: ${items.reduce((sum, item) => sum + (item.hours || 0) * (item.rate || 0), 0).toFixed(2)}
+            Total: ${items.reduce((sum, item) => sum + (item.hours || 0) * hourlyRate, 0).toFixed(2)}
           </div>
         </div>
 

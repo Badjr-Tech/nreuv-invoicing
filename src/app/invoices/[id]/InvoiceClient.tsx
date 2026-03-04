@@ -19,7 +19,7 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
   const isOwner = invoice.userId === currentUserId;
   const isAdminOrManager = currentUserRole === "ADMIN" || currentUserRole === "PAYROLL_MANAGER";
 
-  const handleStatusChange = async (newStatus: "SENT" | "APPROVED") => {
+  const handleStatusChange = async (newStatus: "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED") => {
     setIsUpdating(true);
     setError(null);
     try {
@@ -43,7 +43,8 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
         <span
           className={`px-3 py-1 text-sm font-semibold rounded-full ${
             invoice.status === "DRAFT" ? "bg-yellow-100 text-yellow-800" :
-            invoice.status === "SENT" ? "bg-blue-100 text-blue-800" :
+            invoice.status === "PENDING_MANAGER" ? "bg-purple-100 text-purple-800" :
+            invoice.status === "PENDING_ADMIN" ? "bg-blue-100 text-blue-800" :
             "bg-green-100 text-green-800"
           }`}
         >
@@ -82,6 +83,7 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-600 border-y border-slate-200">
+                <th className="py-3 px-4 font-semibold text-sm">Date</th>
                 <th className="py-3 px-4 font-semibold text-sm">Description</th>
                 <th className="py-3 px-4 font-semibold text-sm w-32">Hours</th>
                 <th className="py-3 px-4 font-semibold text-sm w-32">Rate</th>
@@ -91,6 +93,7 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
             <tbody>
               {invoice.items.map((item: any) => (
                 <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                  <td className="py-3 px-4 text-sm text-slate-900">{new Date(item.date).toLocaleDateString()}</td>
                   <td className="py-3 px-4 text-sm text-slate-900">{item.description}</td>
                   <td className="py-3 px-4 text-sm text-slate-600">{item.hours}</td>
                   <td className="py-3 px-4 text-sm text-slate-600">${item.rate.toFixed(2)}</td>
@@ -100,7 +103,7 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-slate-200">
-                <td colSpan={3} className="py-4 px-4 text-right font-bold text-slate-700">Grand Total:</td>
+                <td colSpan={4} className="py-4 px-4 text-right font-bold text-slate-700">Grand Total:</td>
                 <td className="py-4 px-4 text-right font-bold text-lg text-nreuv-primary">${invoice.totalCost.toFixed(2)}</td>
               </tr>
             </tfoot>
@@ -119,10 +122,10 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
           </Link>
         )}
 
-        {/* Owner can submit DRAFT to SENT */}
+        {/* Owner can submit DRAFT to next stage */}
         {isOwner && invoice.status === "DRAFT" && (
           <button
-            onClick={() => handleStatusChange("SENT")}
+            onClick={() => handleStatusChange(invoice.user?.managerId ? "PENDING_MANAGER" : "PENDING_ADMIN")}
             disabled={isUpdating}
             className="px-6 py-2.5 bg-nreuv-primary hover:opacity-90 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
           >
@@ -130,8 +133,19 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
           </button>
         )}
 
-        {/* Admin/PM can approve SENT invoices */}
-        {isAdminOrManager && invoice.status === "SENT" && (
+        {/* Manager can pre-approve PENDING_MANAGER invoices */}
+        {currentUserRole === "PAYROLL_MANAGER" && invoice.status === "PENDING_MANAGER" && invoice.user?.managerId === currentUserId && (
+          <button
+            onClick={() => handleStatusChange("PENDING_ADMIN")}
+            disabled={isUpdating}
+            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+          >
+            {isUpdating ? "Pre-Approving..." : "Pre-Approve Invoice"}
+          </button>
+        )}
+
+        {/* Admin can approve PENDING_ADMIN invoices */}
+        {currentUserRole === "ADMIN" && invoice.status === "PENDING_ADMIN" && (
           <button
             onClick={() => handleStatusChange("APPROVED")}
             disabled={isUpdating}

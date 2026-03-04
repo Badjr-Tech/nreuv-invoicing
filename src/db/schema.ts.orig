@@ -20,8 +20,6 @@ export const invoiceRecurrenceEnum = pgEnum("invoice_recurrence", [
 export const invoiceStatusEnum = pgEnum("invoice_status", [
   "DRAFT",
   "SENT",
-  "PENDING_MANAGER",
-  "PENDING_ADMIN",
   "APPROVED",
 ]);
 
@@ -39,7 +37,6 @@ export const users = pgTable("user", {
   role: roleEnum("role").default("USER").notNull(),
   emailVerified: timestamp("email_verified", { mode: "date" }), // Added emailVerified
   hourlyRate: real("hourly_rate").default(0).notNull(), // Added hourlyRate
-  managerId: uuid("manager_id").references((): any => users.id),
 });
 
 export type InsertUser = InferInsertModel<typeof users>;
@@ -80,7 +77,6 @@ export const invoices = pgTable("invoice", {
 
 export const invoiceItems = pgTable("invoice_item", {
   id: uuid("id").primaryKey().defaultRandom(),
-  date: timestamp("date", { mode: "date" }).notNull().defaultNow(),
   description: text("description").notNull(),
   hours: real("hours").notNull(),
   rate: real("rate").notNull(),
@@ -121,10 +117,6 @@ export const allowedInvoiceDates = pgTable("allowed_invoice_date", {
 export const usersRelations = relations(users, ({ many }) => ({
   invoices: many(invoices),
   notifications: many(notifications),
-  employees: many(users, { relationName: "manager" }),
-}));
-export const userManagerRelations = relations(users, ({ one }) => ({
-  manager: one(users, { fields: [users.managerId], references: [users.id], relationName: "manager" }),
 }));
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
