@@ -1,9 +1,10 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { invoices, paymentSchedules, categories, allowedInvoiceDates, users } from "@/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { invoices, paymentSchedules, categories, invoiceDeadlineSettings, users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import EditInvoiceClient from "./EditInvoiceClient";
+import { generatePayPeriods } from "@/lib/schedule-utils";
 
 export default async function EditInvoicePage({ params }: { params: { id: string } }) {
   const session = await auth();
@@ -56,7 +57,12 @@ export default async function EditInvoicePage({ params }: { params: { id: string
   // Fetch necessary data for the form
   const dbPaymentSchedules = await db.select().from(paymentSchedules);
   const dbCategories = await db.select().from(categories);
-  const dbAllowedDates = await db.select().from(allowedInvoiceDates).orderBy(asc(allowedInvoiceDates.date));
+  
+  // Fetch global schedule
+  const settings = await db.select().from(invoiceDeadlineSettings).limit(1);
+  const globalSchedule = settings[0];
+  const payPeriods = globalSchedule ? generatePayPeriods(globalSchedule as any, 12) : []; // Generate next 12 periods
+
 
   const userRecord = await db.query.users.findFirst({
     where: eq(users.id, invoice.userId),
@@ -68,7 +74,7 @@ export default async function EditInvoicePage({ params }: { params: { id: string
         invoice={invoice}
         paymentSchedules={dbPaymentSchedules}
         categories={dbCategories}
-        allowedDates={dbAllowedDates}
+        payPeriods={payPeriods}
         hourlyRate={userRecord?.hourlyRate || 0}
       />
     </div>

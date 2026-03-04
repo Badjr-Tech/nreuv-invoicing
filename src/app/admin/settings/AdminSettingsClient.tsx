@@ -16,6 +16,9 @@ interface DeadlineSetting {
   id: string;
   recurrence: RecurrenceType;
   customIntervalDays: number | null;
+  startDate: Date | null;
+  billingPeriodLengthDays: number | null;
+  billingPeriodEndOffsetDays: number | null;
 }
 
 interface PaymentSchedule {
@@ -61,6 +64,9 @@ export default function AdminSettingsClient({
   const [newCustomInterval, setNewCustomInterval] = useState<number | undefined>(
     undefined
   );
+  const [newStartDate, setNewStartDate] = useState<string>("");
+  const [newBillingPeriodLengthDays, setNewBillingPeriodLengthDays] = useState<number | undefined>(undefined);
+  const [newBillingPeriodEndOffsetDays, setNewBillingPeriodEndOffsetDays] = useState<number | undefined>(undefined);
 
   // State for new payment schedule form
   const [newScheduleName, setNewScheduleName] = useState<string>("");
@@ -75,13 +81,20 @@ export default function AdminSettingsClient({
       await createOrUpdateInvoiceDeadlineSetting({
         recurrence: newRecurrence,
         customIntervalDays: newCustomInterval,
+        startDate: newStartDate ? new Date(newStartDate) : undefined,
+        billingPeriodLengthDays: newBillingPeriodLengthDays,
+        billingPeriodEndOffsetDays: newBillingPeriodEndOffsetDays,
       });
       // Re-fetch or update state
       // For simplicity, let's just alert for now, in a real app you'd re-fetch or update state more robustly
       alert("Deadline setting saved!");
+      router.refresh();
       // Reset form
       setNewRecurrence("MONTHLY");
       setNewCustomInterval(undefined);
+      setNewStartDate("");
+      setNewBillingPeriodLengthDays(undefined);
+      setNewBillingPeriodEndOffsetDays(undefined);
     } catch (error: any) {
       alert(`Error saving deadline setting: ${error.message}`);
     }
@@ -184,50 +197,98 @@ export default function AdminSettingsClient({
       {/* Invoice Deadline Settings */}
       <div className="bg-white shadow-md rounded-lg p-4 mb-6">
         <h2 className="text-xl font-semibold text-black mb-4">
-          Invoice Deadline Settings
+          Automated Payroll Schedule Settings
         </h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Configure a global payroll schedule. This automatically dictates what dates contractors can choose for their invoices, and what billing periods they are allowed to select for their hours.
+        </p>
         <div className="mb-4">
           {deadlineSettings.map((setting) => (
-            <div key={setting.id} className="mb-2 p-2 border rounded">
-              Recurrence: {setting.recurrence}{" "}
-              {setting.customIntervalDays &&
-                `(Every ${setting.customIntervalDays} days)`}
+            <div key={setting.id} className="mb-2 p-4 border rounded bg-slate-50">
+              <div className="font-semibold text-lg mb-2">Current Schedule: {setting.recurrence}</div>
+              <ul className="text-sm text-slate-700 space-y-1">
+                <li><span className="font-medium">First Invoice Date:</span> {setting.startDate ? new Date(setting.startDate).toLocaleDateString() : 'Not Set'}</li>
+                {setting.recurrence === "CUSTOM" && <li><span className="font-medium">Every:</span> {setting.customIntervalDays} days</li>}
+                <li><span className="font-medium">Billing Period Length:</span> {setting.billingPeriodLengthDays || 0} days</li>
+                <li><span className="font-medium">Billing Period Ends:</span> {setting.billingPeriodEndOffsetDays || 0} days before the invoice date</li>
+              </ul>
             </div>
           ))}
+          {deadlineSettings.length === 0 && <p className="text-sm text-slate-500 italic">No automated schedule configured.</p>}
         </div>
-        <h3 className="text-lg font-medium text-black mb-2">
-          Add New Deadline Setting
+        
+        <h3 className="text-lg font-medium text-black mb-3 border-t border-slate-200 pt-4">
+          {deadlineSettings.length > 0 ? "Update Schedule" : "Create Schedule"}
         </h3>
-        <div className="flex gap-2 mb-2">
-          <select
-            className="border p-2 rounded"
-            value={newRecurrence}
-            onChange={(e) => setNewRecurrence(e.target.value as RecurrenceType)}
-          >
-            {invoiceRecurrenceEnum.enumValues.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">First Invoice Date</label>
+            <input
+              type="date"
+              className="border p-2 rounded outline-none focus:ring-2 focus:ring-nreuv-accent"
+              value={newStartDate}
+              onChange={(e) => setNewStartDate(e.target.value)}
+            />
+          </div>
+          
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Frequency</label>
+            <select
+              className="border p-2 rounded outline-none focus:ring-2 focus:ring-nreuv-accent bg-white"
+              value={newRecurrence}
+              onChange={(e) => setNewRecurrence(e.target.value as RecurrenceType)}
+            >
+              {invoiceRecurrenceEnum.enumValues.map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+
           {newRecurrence === "CUSTOM" && (
+            <div className="flex flex-col">
+              <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Custom Frequency (Days)</label>
+              <input
+                type="number"
+                min="1"
+                className="border p-2 rounded outline-none focus:ring-2 focus:ring-nreuv-accent"
+                value={newCustomInterval || ""}
+                onChange={(e) => setNewCustomInterval(parseInt(e.target.value) || undefined)}
+              />
+            </div>
+          )}
+
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Billing Period Length (Days)</label>
             <input
               type="number"
-              className="border p-2 rounded"
-              placeholder="Custom Days"
-              value={newCustomInterval || ""}
-              onChange={(e) =>
-                setNewCustomInterval(parseInt(e.target.value) || undefined)
-              }
+              min="1"
+              placeholder="e.g., 14 for two weeks"
+              className="border p-2 rounded outline-none focus:ring-2 focus:ring-nreuv-accent"
+              value={newBillingPeriodLengthDays || ""}
+              onChange={(e) => setNewBillingPeriodLengthDays(parseInt(e.target.value) || undefined)}
             />
-          )}
-          <button
-            onClick={handleSaveDeadlineSetting}
-            className="bg-nreuv-primary hover:opacity-90 text-white font-bold py-2 px-4 rounded"
-          >
-            Save Deadline Setting
-          </button>
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Billing Ends X Days Before Invoice</label>
+            <input
+              type="number"
+              min="0"
+              placeholder="e.g., 5"
+              className="border p-2 rounded outline-none focus:ring-2 focus:ring-nreuv-accent"
+              value={newBillingPeriodEndOffsetDays || ""}
+              onChange={(e) => setNewBillingPeriodEndOffsetDays(parseInt(e.target.value) || undefined)}
+            />
+          </div>
         </div>
+
+        <button
+          onClick={handleSaveDeadlineSetting}
+          className="bg-nreuv-primary hover:opacity-90 text-white font-bold py-2 px-6 rounded transition-colors"
+        >
+          Save Automated Schedule
+        </button>
       </div>
 
       {/* Payment Schedules */}

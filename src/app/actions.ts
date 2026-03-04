@@ -15,6 +15,9 @@ interface CreateOrUpdateInvoiceDeadlineSettingData {
   id?: string;
   recurrence: "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "CUSTOM";
   customIntervalDays?: number;
+  startDate?: Date;
+  billingPeriodLengthDays?: number;
+  billingPeriodEndOffsetDays?: number;
 }
 
 interface CreateOrUpdatePaymentScheduleData {
@@ -66,6 +69,9 @@ export async function createOrUpdateInvoiceDeadlineSetting(data: CreateOrUpdateI
       .set({
         recurrence: data.recurrence,
         customIntervalDays: data.customIntervalDays || null,
+        startDate: data.startDate || null,
+        billingPeriodLengthDays: data.billingPeriodLengthDays || null,
+        billingPeriodEndOffsetDays: data.billingPeriodEndOffsetDays || null,
       })
       .where(eq(invoiceDeadlineSettings.id, data.id));
   } else {
@@ -73,6 +79,9 @@ export async function createOrUpdateInvoiceDeadlineSetting(data: CreateOrUpdateI
     await db.insert(invoiceDeadlineSettings).values({
       recurrence: data.recurrence,
       customIntervalDays: data.customIntervalDays || null,
+      startDate: data.startDate || null,
+      billingPeriodLengthDays: data.billingPeriodLengthDays || null,
+      billingPeriodEndOffsetDays: data.billingPeriodEndOffsetDays || null,
     });
   }
 
@@ -769,6 +778,34 @@ export async function resetUserPassword(userId: string, newPassword: string) {
   const hashedPassword = await bcrypt.hash(newPassword, 10);
   await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
   revalidatePath("/admin/users");
+}
+
+export async function resetOwnPassword(currentPassword: string, newPassword: string) {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  if (newPassword.length < 8) {
+    throw new Error("New password must be at least 8 characters long.");
+  }
+
+  const userRecord = await db.query.users.findFirst({
+    where: eq(users.id, session.user.id),
+  });
+
+  if (!userRecord) {
+    throw new Error("User not found.");
+  }
+
+  const isPasswordValid = await bcrypt.compare(currentPassword, userRecord.password);
+  if (!isPasswordValid) {
+    throw new Error("Current password is incorrect.");
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  await db.update(users).set({ password: hashedPassword }).where(eq(users.id, session.user.id));
 }
 
 export async function addUserManually(data: any) {

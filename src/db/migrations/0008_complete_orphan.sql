@@ -1,0 +1,1 @@
+ALTER TABLE "invoice_deadline_settings" ADD COLUMN "start_date" timestamp;

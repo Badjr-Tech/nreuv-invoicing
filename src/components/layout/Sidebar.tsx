@@ -37,7 +37,14 @@ export default async function Sidebar() {
           {session?.user?.role === "ADMIN" && (
             <li>
               <Link href="/admin/settings" className="block py-2.5 px-4 rounded transition duration-200 hover:bg-black/20">
-                Settings
+                System Settings
+              </Link>
+            </li>
+          )}
+          {(session?.user?.role === "USER" || session?.user?.role === "EMPLOYEE" || session?.user?.role === "PAYROLL_MANAGER") && (
+            <li>
+              <Link href="/settings" className="block py-2.5 px-4 rounded transition duration-200 hover:bg-black/20">
+                My Settings
               </Link>
             </li>
           )}

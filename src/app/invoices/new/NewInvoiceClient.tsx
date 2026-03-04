@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createInvoice } from '@/app/actions';
+import { PayPeriod } from '@/lib/schedule-utils';
 
 interface PaymentSchedule {
   id: string;
@@ -15,33 +16,38 @@ interface Category {
   name: string;
 }
 
-interface AllowedDate {
-  id: string;
-  date: Date;
-  description: string | null;
-}
-
 interface NewInvoiceClientProps {
   paymentSchedules: PaymentSchedule[];
   categories: Category[];
-  allowedDates: AllowedDate[];
+  payPeriods: PayPeriod[];
   hourlyRate: number;
 }
 
-export default function NewInvoiceClient({ paymentSchedules, categories, allowedDates, hourlyRate }: NewInvoiceClientProps) {
+export default function NewInvoiceClient({ paymentSchedules, categories, payPeriods, hourlyRate }: NewInvoiceClientProps) {
   const router = useRouter();
-  const [invoiceDate, setInvoiceDate] = useState(
-    allowedDates.length > 0 
-      ? new Date(allowedDates[0].date).toISOString().split('T')[0] 
-      : new Date().toISOString().split('T')[0]
-  );
+  
+  // Default to the first pay period if available, otherwise today
+  const defaultDateStr = payPeriods.length > 0 
+    ? new Date(payPeriods[0].invoiceDate).toISOString().split('T')[0] 
+    : new Date().toISOString().split('T')[0];
+    
+  const [invoiceDate, setInvoiceDate] = useState(defaultDateStr);
   const [paymentScheduleId, setPaymentScheduleId] = useState(paymentSchedules[0]?.id || "");
-  const [items, setItems] = useState([{ date: new Date().toISOString().split('T')[0], description: '', hours: 0, categoryId: '' }]);
+  const [items, setItems] = useState([{ date: defaultDateStr, description: '', hours: 0, categoryId: '' }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Find the currently selected pay period
+  const selectedPayPeriod = payPeriods.find(
+    (p) => new Date(p.invoiceDate).toISOString().split('T')[0] === invoiceDate
+  );
+
   const handleAddItem = () => {
-    setItems([...items, { date: new Date().toISOString().split('T')[0], description: '', hours: 0, categoryId: '' }]);
+    // Default the new item's date to the start of the selected period, or today
+    const defaultItemDate = selectedPayPeriod 
+      ? new Date(selectedPayPeriod.periodStart).toISOString().split('T')[0] 
+      : invoiceDate;
+    setItems([...items, { date: defaultItemDate, description: '', hours: 0, categoryId: '' }]);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -63,6 +69,21 @@ export default function NewInvoiceClient({ paymentSchedules, categories, allowed
       const validItems = items.filter(item => item.description.trim() !== '' && item.hours > 0 && item.date);
       if (validItems.length === 0) {
         throw new Error("Please add at least one valid item with date, description, and hours.");
+      }
+
+      // If a pay period is selected, enforce that all items fall within it
+      if (selectedPayPeriod) {
+        const pStart = new Date(selectedPayPeriod.periodStart);
+        const pEnd = new Date(selectedPayPeriod.periodEnd);
+        pStart.setHours(0, 0, 0, 0);
+        pEnd.setHours(23, 59, 59, 999);
+
+        for (let i = 0; i < validItems.length; i++) {
+          const itemDate = new Date(validItems[i].date);
+          if (itemDate < pStart || itemDate > pEnd) {
+            throw new Error(`Item at row ${i + 1} has a date (${validItems[i].date}) outside the allowed billing period (${selectedPayPeriod.label}).`);
+          }
+        }
       }
 
       await createInvoice({
@@ -95,22 +116,32 @@ export default function NewInvoiceClient({ paymentSchedules, categories, allowed
         </div>
       )}
 
+      {selectedPayPeriod && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-800">
+          <span className="font-semibold">Current Billing Period:</span> {selectedPayPeriod.label}. 
+          All item dates must fall within this range.
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="flex flex-col">
             <label className="text-sm font-semibold text-slate-700 mb-2">Invoice Date</label>
-            {allowedDates.length > 0 ? (
+            {payPeriods.length > 0 ? (
               <select
                 required
                 value={invoiceDate}
-                onChange={(e) => setInvoiceDate(e.target.value)}
+                onChange={(e) => {
+                  setInvoiceDate(e.target.value);
+                  // Optionally, you could reset item dates here, but might be annoying to users
+                }}
                 className="border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-nreuv-accent outline-none bg-white"
               >
-                {allowedDates.map((dateObj) => {
-                  const dateStr = new Date(dateObj.date).toISOString().split('T')[0];
+                {payPeriods.map((period, idx) => {
+                  const dateStr = new Date(period.invoiceDate).toISOString().split('T')[0];
                   return (
-                    <option key={dateObj.id} value={dateStr}>
-                      {new Date(dateObj.date).toLocaleDateString()} {dateObj.description ? `- ${dateObj.description}` : ''}
+                    <option key={idx} value={dateStr}>
+                      {new Date(period.invoiceDate).toLocaleDateString()} (Covers: {period.label})
                     </option>
                   );
                 })}
