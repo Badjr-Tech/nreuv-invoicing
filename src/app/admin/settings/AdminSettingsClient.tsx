@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import {
   createOrUpdateInvoiceDeadlineSetting,
-  createOrUpdatePaymentSchedule,
   addAllowedInvoiceDate,
   deleteAllowedInvoiceDate,
 } from "@/app/actions";
@@ -21,11 +20,7 @@ interface DeadlineSetting {
   billingPeriodEndOffsetDays: number | null;
 }
 
-interface PaymentSchedule {
-  id: string;
-  name: string;
-  daysDue: number;
-}
+
 
 interface AllowedDate {
   id: string;
@@ -35,29 +30,23 @@ interface AllowedDate {
 
 interface AdminSettingsClientProps {
   initialDeadlineSettings: DeadlineSetting[];
-  initialPaymentSchedules: PaymentSchedule[];
   initialAllowedDates: AllowedDate[];
 }
 
 export default function AdminSettingsClient({
   initialDeadlineSettings,
-  initialPaymentSchedules,
   initialAllowedDates,
 }: AdminSettingsClientProps) {
   const router = useRouter();
   const [deadlineSettings, setDeadlineSettings] = useState<DeadlineSetting[]>(
     initialDeadlineSettings
   );
-  const [paymentSchedules, setPaymentSchedules] = useState<PaymentSchedule[]>(
-    initialPaymentSchedules
-  );
   const [allowedDates, setAllowedDates] = useState<AllowedDate[]>(initialAllowedDates);
 
   React.useEffect(() => {
     setDeadlineSettings(initialDeadlineSettings);
-    setPaymentSchedules(initialPaymentSchedules);
     setAllowedDates(initialAllowedDates);
-  }, [initialDeadlineSettings, initialPaymentSchedules, initialAllowedDates]);
+  }, [initialDeadlineSettings, initialAllowedDates]);
 
   // State for new deadline setting form
   const [newRecurrence, setNewRecurrence] = useState<RecurrenceType>("MONTHLY");
@@ -67,10 +56,6 @@ export default function AdminSettingsClient({
   const [newStartDate, setNewStartDate] = useState<string>("");
   const [newBillingPeriodLengthDays, setNewBillingPeriodLengthDays] = useState<number | undefined>(undefined);
   const [newBillingPeriodEndOffsetDays, setNewBillingPeriodEndOffsetDays] = useState<number | undefined>(undefined);
-
-  // State for new payment schedule form
-  const [newScheduleName, setNewScheduleName] = useState<string>("");
-  const [newScheduleDaysDue, setNewScheduleDaysDue] = useState<number>(0);
 
   // State for new allowed invoice date form
   const [newAllowedDate, setNewAllowedDate] = useState<string>("");
@@ -100,21 +85,7 @@ export default function AdminSettingsClient({
     }
   };
 
-  const handleSavePaymentSchedule = async () => {
-    try {
-      await createOrUpdatePaymentSchedule({
-        name: newScheduleName,
-        daysDue: newScheduleDaysDue,
-      });
-      // Re-fetch or update state
-      alert("Payment schedule saved!");
-      // Reset form
-      setNewScheduleName("");
-      setNewScheduleDaysDue(0);
-    } catch (error: any) {
-      alert(`Error saving payment schedule: ${error.message}`);
-    }
-  };
+
 
   const handleAddAllowedDate = async () => {
     try {
@@ -291,44 +262,7 @@ export default function AdminSettingsClient({
         </button>
       </div>
 
-      {/* Payment Schedules */}
-      <div className="bg-white shadow-md rounded-lg p-4">
-        <h2 className="text-xl font-semibold text-black mb-4">
-          Payment Schedules
-        </h2>
-        <div className="mb-4">
-          {paymentSchedules.map((schedule) => (
-            <div key={schedule.id} className="mb-2 p-2 border rounded">
-              Name: {schedule.name}, Days Due: {schedule.daysDue}
-            </div>
-          ))}
-        </div>
-        <h3 className="text-lg font-medium text-black mb-2">
-          Add New Payment Schedule
-        </h3>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            className="border p-2 rounded"
-            placeholder="Schedule Name"
-            value={newScheduleName}
-            onChange={(e) => setNewScheduleName(e.target.value)}
-          />
-          <input
-            type="number"
-            className="border p-2 rounded"
-            placeholder="Days Due"
-            value={newScheduleDaysDue}
-            onChange={(e) => setNewScheduleDaysDue(parseInt(e.target.value) || 0)}
-          />
-          <button
-            onClick={handleSavePaymentSchedule}
-            className="bg-nreuv-primary hover:opacity-90 text-white font-bold py-2 px-4 rounded"
-          >
-            Save Payment Schedule
-          </button>
-        </div>
-      </div>
+
     </div>
   );
 }

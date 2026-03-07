@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { invoices, paymentSchedules, categories, invoiceDeadlineSettings, users } from "@/db/schema";
+import { invoices, categories, invoiceDeadlineSettings, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import EditInvoiceClient from "./EditInvoiceClient";
@@ -55,7 +55,6 @@ export default async function EditInvoicePage({ params }: { params: { id: string
   }
 
   // Fetch necessary data for the form
-  const dbPaymentSchedules = await db.select().from(paymentSchedules);
   const dbCategories = await db.select().from(categories);
   
   // Fetch global schedule
@@ -72,7 +71,6 @@ export default async function EditInvoicePage({ params }: { params: { id: string
     <div className="p-4 md:p-8">
       <EditInvoiceClient
         invoice={invoice}
-        paymentSchedules={dbPaymentSchedules}
         categories={dbCategories}
         payPeriods={payPeriods}
         hourlyRate={userRecord?.hourlyRate || 0}

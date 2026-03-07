@@ -5,11 +5,7 @@ import { useRouter } from 'next/navigation';
 import { updateInvoice } from '@/app/actions';
 import { PayPeriod } from '@/lib/schedule-utils';
 
-interface PaymentSchedule {
-  id: string;
-  name: string;
-  daysDue: number;
-}
+
 
 interface Category {
   id: string;
@@ -18,20 +14,18 @@ interface Category {
 
 interface EditInvoiceClientProps {
   invoice: any;
-  paymentSchedules: PaymentSchedule[];
   categories: Category[];
   payPeriods: PayPeriod[];
   hourlyRate: number;
 }
 
-export default function EditInvoiceClient({ invoice, paymentSchedules, categories, payPeriods, hourlyRate }: EditInvoiceClientProps) {
+export default function EditInvoiceClient({ invoice, categories, payPeriods, hourlyRate }: EditInvoiceClientProps) {
   const router = useRouter();
   
   // Format dates for input fields
   const formattedInvoiceDate = new Date(invoice.invoiceDate).toISOString().split('T')[0];
 
   const [invoiceDate, setInvoiceDate] = useState(formattedInvoiceDate);
-  const [paymentScheduleId, setPaymentScheduleId] = useState(invoice.paymentScheduleId || "");
   const [items, setItems] = useState(invoice.items.map((item: any) => ({
     id: item.id,
     date: item.date ? new Date(item.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
@@ -174,21 +168,7 @@ export default function EditInvoiceClient({ invoice, paymentSchedules, categorie
             )}
           </div>
 
-          <div className="flex flex-col">
-            <label className="text-sm font-semibold text-slate-700 mb-2">Payment Terms</label>
-            <select
-              required
-              value={paymentScheduleId}
-              onChange={(e) => setPaymentScheduleId(e.target.value)}
-              className="border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-nreuv-accent outline-none bg-white"
-            >
-              {paymentSchedules.map((schedule) => (
-                <option key={schedule.id} value={schedule.id}>
-                  {schedule.name} ({schedule.daysDue} Days)
-                </option>
-              ))}
-            </select>
-          </div>
+
         </div>
 
         <div className="mt-8">

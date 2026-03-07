@@ -58,16 +58,10 @@ export const categories = pgTable("category", {
   name: text("name").notNull().unique(),
 });
 
-export const paymentSchedules = pgTable("payment_schedule", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull().unique(),
-  daysDue: integer("days_due").notNull(),
-});
-
 export const invoices = pgTable("invoice", {
   id: uuid("id").primaryKey().defaultRandom(),
   invoiceDate: timestamp("invoice_date", { mode: "date" }).notNull(),
-  dueDate: timestamp("due_date", { mode: "date" }).notNull(),
+  dueDate: timestamp("due_date", { mode: "date" }).notNull(), // dueDate will be fixed to InvoiceDate + 15 days
   status: invoiceStatusEnum("status").default("DRAFT").notNull(),
   totalHours: real("total_hours").default(0).notNull(),
   totalCost: real("total_cost").default(0).notNull(),
@@ -76,9 +70,6 @@ export const invoices = pgTable("invoice", {
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id),
-  paymentScheduleId: uuid("payment_schedule_id")
-    .notNull()
-    .references(() => paymentSchedules.id),
 });
 
 export const invoiceItems = pgTable("invoice_item", {
@@ -134,18 +125,10 @@ export const categoriesRelations = relations(categories, ({ many }) => ({
   invoiceItems: many(invoiceItems),
 }));
 
-export const paymentSchedulesRelations = relations(paymentSchedules, ({ many }) => ({
-  invoices: many(invoices),
-}));
-
 export const invoicesRelations = relations(invoices, ({ one, many }) => ({
   user: one(users, {
     fields: [invoices.userId],
     references: [users.id],
-  }),
-  paymentSchedule: one(paymentSchedules, {
-    fields: [invoices.paymentScheduleId],
-    references: [paymentSchedules.id],
   }),
   items: many(invoiceItems),
 }));

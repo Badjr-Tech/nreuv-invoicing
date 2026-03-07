@@ -5,11 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createInvoice } from '@/app/actions';
 import { PayPeriod } from '@/lib/schedule-utils';
 
-interface PaymentSchedule {
-  id: string;
-  name: string;
-  daysDue: number;
-}
+
 
 interface Category {
   id: string;
@@ -17,7 +13,6 @@ interface Category {
 }
 
 interface NewInvoiceClientProps {
-  paymentSchedules: PaymentSchedule[];
   categories: Category[];
   payPeriods: PayPeriod[];
   hourlyRate: number;
@@ -32,7 +27,6 @@ export default function NewInvoiceClient({ paymentSchedules, categories, payPeri
     : new Date().toISOString().split('T')[0];
     
   const [invoiceDate, setInvoiceDate] = useState(defaultDateStr);
-  const [paymentScheduleId, setPaymentScheduleId] = useState(paymentSchedules[0]?.id || "");
   const [items, setItems] = useState([{ date: defaultDateStr, description: '', hours: 0, categoryId: '' }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -157,21 +151,7 @@ export default function NewInvoiceClient({ paymentSchedules, categories, payPeri
             )}
           </div>
 
-          <div className="flex flex-col">
-            <label className="text-sm font-semibold text-slate-700 mb-2">Payment Terms</label>
-            <select
-              required
-              value={paymentScheduleId}
-              onChange={(e) => setPaymentScheduleId(e.target.value)}
-              className="border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-nreuv-accent outline-none bg-white"
-            >
-              {paymentSchedules.map((schedule) => (
-                <option key={schedule.id} value={schedule.id}>
-                  {schedule.name} ({schedule.daysDue} Days)
-                </option>
-              ))}
-            </select>
-          </div>
+
         </div>
 
         <div className="mt-8">

@@ -10,7 +10,7 @@ import DownloadPdfButton from "./DownloadPdfButton";
 async function getUserInvoices(userId: string) {
   return db.query.invoices.findMany({
     where: eq(invoices.userId, userId),
-    with: { paymentSchedule: true },
+    with: { items: true },
     orderBy: [desc(invoices.invoiceDate)],
   });
 }

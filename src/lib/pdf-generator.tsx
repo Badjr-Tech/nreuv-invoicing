@@ -10,7 +10,6 @@ interface Invoice {
   submittedDate: Date | null;
   approvedDate: Date | null;
   userId: string;
-  paymentScheduleId: string;
 }
 
 // Register a font to use, otherwise, default font might not support all characters

@@ -41,8 +41,7 @@ async function getAllInvoices(
 
   return db.query.invoices.findMany({
     where: and(...whereClause),
-    with: { user: true, paymentSchedule: true },
-    orderBy: [orderBy((invoices as any)[sortField])], // Dynamic order by
+          with: { user: true },    orderBy: [orderBy((invoices as any)[sortField])], // Dynamic order by
   });
 }
 

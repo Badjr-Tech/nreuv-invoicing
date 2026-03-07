@@ -2,7 +2,7 @@
 
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { invoices, invoiceItems, paymentSchedules, invoiceDeadlineSettings, invoiceRecurrenceEnum, notifications, accountRequests, users, InsertUser, allowedInvoiceDates } from "@/db/schema";
+import { invoices, invoiceItems, invoiceDeadlineSettings, invoiceRecurrenceEnum, notifications, accountRequests, users, InsertUser, allowedInvoiceDates } from "@/db/schema";
 import bcrypt from "bcryptjs";
 import { and, eq, desc, asc, gte, lte, inArray, notInArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -20,11 +20,7 @@ interface CreateOrUpdateInvoiceDeadlineSettingData {
   billingPeriodEndOffsetDays?: number;
 }
 
-interface CreateOrUpdatePaymentScheduleData {
-  id?: string;
-  name: string;
-  daysDue: number;
-}
+
 
 export async function addAllowedInvoiceDate(date: Date, description?: string) {
   const session = await auth();
@@ -89,37 +85,8 @@ export async function createOrUpdateInvoiceDeadlineSetting(data: CreateOrUpdateI
   revalidatePath("/"); // Revalidate home page if affected
 }
 
-export async function createOrUpdatePaymentSchedule(data: CreateOrUpdatePaymentScheduleData) {
-  const session = await auth();
 
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can manage payment schedules.");
-  }
 
-  if (!data.name || data.daysDue === undefined || data.daysDue < 0) {
-    throw new Error("Missing required payment schedule data (name, daysDue).");
-  }
-
-  if (data.id) {
-    // Update existing schedule
-    await db
-      .update(paymentSchedules)
-      .set({
-        name: data.name,
-        daysDue: data.daysDue,
-      })
-      .where(eq(paymentSchedules.id, data.id));
-  } else {
-    // Create new schedule
-    await db.insert(paymentSchedules).values({
-      name: data.name,
-      daysDue: data.daysDue,
-    });
-  }
-
-  revalidatePath("/admin/settings"); // Revalidate a hypothetical admin settings page
-  revalidatePath("/"); // Revalidate home page if affected
-}
 
 // New interfaces for notifications
 interface CreateNotificationData {
@@ -306,7 +273,6 @@ interface NewInvoiceItem {
 
 interface NewInvoiceData {
   invoiceDate: Date;
-  paymentScheduleId: string;
   items: NewInvoiceItem[];
 }
 
@@ -317,7 +283,6 @@ interface UpdateInvoiceItem extends NewInvoiceItem {
 interface UpdateInvoiceData {
   id: string; // Invoice ID is required for updates
   invoiceDate: Date;
-  paymentScheduleId: string;
   items: UpdateInvoiceItem[];
 }
 
@@ -329,7 +294,7 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
   }
 
   // Basic validation (can be enhanced with a library like Zod)
-  if (!invoiceData.invoiceDate || !invoiceData.paymentScheduleId || !invoiceData.items.length) {
+  if (!invoiceData.invoiceDate || !invoiceData.items.length) {
     throw new Error("Missing required invoice data.");
   }
 
@@ -344,16 +309,8 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
   
   const userRate = userRecord.hourlyRate;
 
-  // Fetch payment schedule to calculate due date
-  const paymentSchedule = await db.query.paymentSchedules.findFirst({
-    where: eq(paymentSchedules.id, invoiceData.paymentScheduleId),
-  });
-
-  if (!paymentSchedule) {
-    throw new Error("Payment schedule not found.");
-  }
-
-  const dueDate = addDays(invoiceData.invoiceDate, paymentSchedule.daysDue);
+  // Calculate due date (fixed 15 days after invoice date)
+  const dueDate = addDays(invoiceData.invoiceDate, 15);
 
   let totalHours = 0;
   let totalCost = 0;
@@ -373,7 +330,6 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
         userId: userId,
         invoiceDate: invoiceData.invoiceDate,
         dueDate: dueDate,
-        paymentScheduleId: invoiceData.paymentScheduleId,
         totalHours: totalHours,
         totalCost: totalCost,
       })
@@ -413,7 +369,7 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
   }
 
   // Basic validation
-  if (!invoiceData.id || !invoiceData.invoiceDate || !invoiceData.paymentScheduleId || !invoiceData.items.length) {
+  if (!invoiceData.id || !invoiceData.invoiceDate || !invoiceData.items.length) {
     throw new Error("Missing required invoice data for update.");
   }
 
@@ -448,16 +404,9 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
     throw new Error("Forbidden: Only DRAFT invoices can be edited.");
   }
 
-  // Fetch payment schedule to calculate due date if it changed
-  const paymentSchedule = await db.query.paymentSchedules.findFirst({
-    where: eq(paymentSchedules.id, invoiceData.paymentScheduleId),
-  });
 
-  if (!paymentSchedule) {
-    throw new Error("Payment schedule not found.");
-  }
 
-  const newDueDate = addDays(invoiceData.invoiceDate, paymentSchedule.daysDue);
+  const newDueDate = addDays(invoiceData.invoiceDate, 15);
 
   let newTotalHours = 0;
   let newTotalCost = 0;
@@ -477,7 +426,6 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
       .set({
         invoiceDate: invoiceData.invoiceDate,
         dueDate: newDueDate,
-        paymentScheduleId: invoiceData.paymentScheduleId,
         totalHours: newTotalHours,
         totalCost: newTotalCost,
         // Status remains DRAFT unless explicitly changed by updateInvoiceStatus
