@@ -18,7 +18,7 @@ interface NewInvoiceClientProps {
   hourlyRate: number;
 }
 
-export default function NewInvoiceClient({ paymentSchedules, categories, payPeriods, hourlyRate }: NewInvoiceClientProps) {
+export default function NewInvoiceClient({ categories, payPeriods, hourlyRate }: NewInvoiceClientProps) {
   const router = useRouter();
   
   // Default to the first pay period if available, otherwise today
