@@ -210,7 +210,7 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="flex flex-col">
-            <label className="text-sm font-semibold text-slate-700 mb-2">Payment Date</label>
+            <label className="text-sm font-semibold text-slate-700 mb-2">Invoice Date (End of Billing Period)</label>
             {payPeriods.length > 0 ? (
               <select
                 required

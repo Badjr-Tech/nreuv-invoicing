@@ -36,17 +36,35 @@ type RecurrenceType = typeof invoiceRecurrenceEnum.enumValues[number];
 
 interface DeadlineSetting {
 
+
+
   id: string;
+
+
 
   recurrence: RecurrenceType;
 
+
+
   customIntervalDays: number | null;
+
+
 
   startDate: Date | null;
 
+
+
   billingPeriodLengthDays: number | null;
 
+
+
   billingPeriodEndOffsetDays: number | null;
+
+
+
+  paymentOffsetDays: number | null;
+
+
 
 }
 
@@ -254,7 +272,7 @@ export default function AdminSettingsClient({
   const [newStartDate, setNewStartDate] = useState<string>("");
   const [newBillingPeriodLengthDays, setNewBillingPeriodLengthDays] = useState<number | undefined>(undefined);
   const [newBillingPeriodEndOffsetDays, setNewBillingPeriodEndOffsetDays] = useState<number | undefined>(undefined);
-
+  const [newPaymentOffsetDays, setNewPaymentOffsetDays] = useState<number | undefined>(undefined);
 
 
   // Category management states
@@ -277,6 +295,7 @@ export default function AdminSettingsClient({
         startDate: newStartDate ? new Date(newStartDate) : undefined,
         billingPeriodLengthDays: newBillingPeriodLengthDays,
         billingPeriodEndOffsetDays: newBillingPeriodEndOffsetDays,
+        paymentOffsetDays: newPaymentOffsetDays,
       });
       // Re-fetch or update state
       // For simplicity, let's just alert for now, in a real app you'd re-fetch or update state more robustly
@@ -288,6 +307,7 @@ export default function AdminSettingsClient({
       setNewStartDate("");
       setNewBillingPeriodLengthDays(undefined);
       setNewBillingPeriodEndOffsetDays(undefined);
+      setNewPaymentOffsetDays(undefined);
     } catch (error: any) {
       alert(`Error saving deadline setting: ${error.message}`);
         }
@@ -473,6 +493,18 @@ export default function AdminSettingsClient({
               className="border p-2 rounded outline-none focus:ring-2 focus:ring-nreuv-accent"
               value={newBillingPeriodEndOffsetDays || ""}
               onChange={(e) => setNewBillingPeriodEndOffsetDays(parseInt(e.target.value) || undefined)}
+            />
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Payment X Days After Invoice</label>
+            <input
+              type="number"
+              min="0"
+              placeholder="e.g., 7"
+              className="border p-2 rounded outline-none focus:ring-2 focus:ring-nreuv-accent"
+              value={newPaymentOffsetDays || ""}
+              onChange={(e) => setNewPaymentOffsetDays(parseInt(e.target.value) || undefined)}
             />
           </div>
         </div>

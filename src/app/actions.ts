@@ -18,6 +18,7 @@ interface CreateOrUpdateInvoiceDeadlineSettingData {
   startDate?: Date;
   billingPeriodLengthDays?: number;
   billingPeriodEndOffsetDays?: number;
+  paymentOffsetDays?: number;
 }
 
 
@@ -47,6 +48,7 @@ export async function createOrUpdateInvoiceDeadlineSetting(data: CreateOrUpdateI
         startDate: data.startDate || null,
         billingPeriodLengthDays: data.billingPeriodLengthDays || null,
         billingPeriodEndOffsetDays: data.billingPeriodEndOffsetDays || null,
+        paymentOffsetDays: data.paymentOffsetDays || null,
       })
       .where(eq(invoiceDeadlineSettings.id, data.id));
   } else {
@@ -57,6 +59,7 @@ export async function createOrUpdateInvoiceDeadlineSetting(data: CreateOrUpdateI
       startDate: data.startDate || null,
       billingPeriodLengthDays: data.billingPeriodLengthDays || null,
       billingPeriodEndOffsetDays: data.billingPeriodEndOffsetDays || null,
+      paymentOffsetDays: data.paymentOffsetDays || null,
     });
   }
 
@@ -323,38 +326,43 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
     throw new Error("User not found.");
   }
   
-  const userRate = userRecord.hourlyRate;
-
-  // Fetch active schedule to determine submission deadline (due date) relative to payment date (invoice date)
-  const schedule = await db.query.invoiceDeadlineSettings.findFirst({
-    where: (settings, { isNotNull }) => isNotNull(settings.startDate),
-    orderBy: (settings, { desc }) => [desc(settings.startDate)],
-  });
-
-  const offsetDays = schedule?.billingPeriodEndOffsetDays ?? 7; // Default to 7 if no schedule is found
-  const dueDate = addDays(invoiceData.invoiceDate, -offsetDays);
-
-  let totalHours = 0;
-  let totalCost = 0;
-
-  for (const item of invoiceData.items) {
-    if (item.hours <= 0) {
-      throw new Error("Invoice item hours must be a positive number.");
+    const userRate = userRecord.hourlyRate;
+  
+    // The invoiceData.invoiceDate from the form is now the End of Billing Period
+    const selectedEndOfBillingPeriod = invoiceData.invoiceDate;
+  
+    // Fetch active schedule to determine payment date and submission deadline
+    const schedule = await db.query.invoiceDeadlineSettings.findFirst({
+      where: (settings, { isNotNull }) => isNotNull(settings.startDate),
+      orderBy: (settings, { desc }) => [desc(settings.startDate)],
+    });
+  
+    const submissionDeadlineOffset = schedule?.billingPeriodEndOffsetDays ?? 0; // Days before EOBP for submission
+    const submissionDeadline = addDays(selectedEndOfBillingPeriod, -submissionDeadlineOffset);
+  
+    const paymentOffsetDays = schedule?.paymentOffsetDays ?? 0; // Days after EOBP for payment
+    const paymentDate = addDays(selectedEndOfBillingPeriod, paymentOffsetDays);
+    
+    let totalHours = 0;
+    let totalCost = 0;
+  
+    for (const item of invoiceData.items) {
+      if (item.hours <= 0) {
+        throw new Error("Invoice item hours must be a positive number.");
+      }
+      totalHours += item.hours;
+      totalCost += item.hours * userRate;
     }
-    totalHours += item.hours;
-    totalCost += item.hours * userRate;
-  }
-
-  const [newInvoice] = await db
-    .insert(invoices)
-    .values({
-      userId: userId,
-      invoiceDate: invoiceData.invoiceDate,
-      dueDate: dueDate,
-      totalHours: totalHours,
-      totalCost: totalCost,
-    })
-    .returning();
+  
+    const [newInvoice] = await db
+      .insert(invoices)
+      .values({
+        userId: userId,
+        invoiceDate: paymentDate, // This is the actual Payment Date
+        dueDate: submissionDeadline, // This is the actual Submission Deadline
+        totalHours: totalHours,
+        totalCost: totalCost,
+      })    .returning();
 
   if (!newInvoice) {
     throw new Error("Failed to create invoice.");
@@ -417,43 +425,47 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
   if (existingInvoice.userId !== userId && session.user.role !== "ADMIN") {
     throw new Error("Forbidden: You can only edit your own invoices.");
   }
-  if (existingInvoice.status !== "DRAFT") {
-    throw new Error("Forbidden: Only DRAFT invoices can be edited.");
-  }
-
-
-
-  // Fetch active schedule to determine submission deadline
-  const schedule = await db.query.invoiceDeadlineSettings.findFirst({
-    where: (settings, { isNotNull }) => isNotNull(settings.startDate),
-    orderBy: (settings, { desc }) => [desc(settings.startDate)],
-  });
-
-  const offsetDays = schedule?.billingPeriodEndOffsetDays ?? 7;
-  const newDueDate = addDays(invoiceData.invoiceDate, -offsetDays);
-
-  let newTotalHours = 0;
-  let newTotalCost = 0;
-
-  for (const item of invoiceData.items) {
-    if (item.hours <= 0) {
-      throw new Error("Invoice item hours must be a positive number.");
+    if (existingInvoice.status !== "DRAFT") {
+      throw new Error("Forbidden: Only DRAFT invoices can be edited.");
     }
-    newTotalHours += item.hours;
-    newTotalCost += item.hours * userRate;
-  }
-
-  // Update invoice details
-  await db
-    .update(invoices)
-    .set({
-      invoiceDate: invoiceData.invoiceDate,
-      dueDate: newDueDate,
-      totalHours: newTotalHours,
-      totalCost: newTotalCost,
-      // Status remains DRAFT unless explicitly changed by updateInvoiceStatus
-    })
-    .where(eq(invoices.id, invoiceData.id));
+  
+    // The invoiceData.invoiceDate from the form is now the End of Billing Period
+    const selectedEndOfBillingPeriod = invoiceData.invoiceDate;
+  
+    // Fetch active schedule to determine payment date and submission deadline
+    const schedule = await db.query.invoiceDeadlineSettings.findFirst({
+      where: (settings, { isNotNull }) => isNotNull(settings.startDate),
+      orderBy: (settings, { desc }) => [desc(settings.startDate)],
+    });
+  
+    const submissionDeadlineOffset = schedule?.billingPeriodEndOffsetDays ?? 0; // Days before EOBP for submission
+    const submissionDeadline = addDays(selectedEndOfBillingPeriod, -submissionDeadlineOffset);
+  
+    const paymentOffsetDays = schedule?.paymentOffsetDays ?? 0; // Days after EOBP for payment
+    const paymentDate = addDays(selectedEndOfBillingPeriod, paymentOffsetDays);
+    
+    let newTotalHours = 0;
+    let newTotalCost = 0;
+  
+    for (const item of invoiceData.items) {
+      if (item.hours <= 0) {
+        throw new Error("Invoice item hours must be a positive number.");
+      }
+      newTotalHours += item.hours;
+      newTotalCost += item.hours * userRate;
+    }
+  
+    // Update invoice details
+    await db
+      .update(invoices)
+      .set({
+        invoiceDate: paymentDate, // This is the actual Payment Date
+        dueDate: submissionDeadline, // This is the actual Submission Deadline
+        totalHours: newTotalHours,
+        totalCost: newTotalCost,
+        // Status remains DRAFT unless explicitly changed by updateInvoiceStatus
+      })
+      .where(eq(invoices.id, invoiceData.id));
 
   const existingItemIds = existingInvoice.items.map((item) => item.id);
   const updatedItemIds = invoiceData.items.filter((item) => item.id).map((item) => item.id!);

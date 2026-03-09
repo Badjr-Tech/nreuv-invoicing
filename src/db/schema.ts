@@ -51,7 +51,8 @@ export const invoiceDeadlineSettings = pgTable("invoice_deadline_settings", {
   customIntervalDays: integer("custom_interval_days"),
   startDate: timestamp("start_date", { mode: "date" }), // New field for start date of the schedule
   billingPeriodLengthDays: integer("billing_period_length_days"),
-  billingPeriodEndOffsetDays: integer("billing_period_end_offset_days"), // Days before the invoice date that the billing period ends
+  billingPeriodEndOffsetDays: integer("billing_period_end_offset_days"), // Days before the End of Billing Period that the invoice must be submitted
+  paymentOffsetDays: integer("payment_offset_days"), // Days after the End of Billing Period that payment is made
 });
 
 export const categories = pgTable("category", {
