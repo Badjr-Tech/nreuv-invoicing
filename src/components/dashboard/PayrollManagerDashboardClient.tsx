@@ -81,45 +81,43 @@ export default function PayrollManagerDashboardClient({ initialInvoices, users }
               </select>
             </div>
 
-            <div className="flex flex-col w-full">
-              <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Invoice Date Range</label>
-              <div className="flex flex-col gap-2">
-                <input
-                  type="date"
-                  className="border border-slate-300 p-2.5 rounded-lg w-full focus:ring-2 focus:ring-nreuv-accent focus:border-transparent outline-none"
-                  value={currentFilterInvoiceDateStart}
-                  onChange={(e) => handleFilterChange("filterInvoiceDateStart", e.target.value)}
-                  title="Start Date"
-                />
-                <input
-                  type="date"
-                  className="border border-slate-300 p-2.5 rounded-lg w-full focus:ring-2 focus:ring-nreuv-accent focus:border-transparent outline-none"
-                  value={currentFilterInvoiceDateEnd}
-                  onChange={(e) => handleFilterChange("filterInvoiceDateEnd", e.target.value)}
-                  title="End Date"
-                />
-              </div>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Payment Date Range</label>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
+                value={filterInvoiceDateStart}
+                onChange={(e) => setFilterInvoiceDateStart(e.target.value)}
+              />
+              <span className="text-slate-400 self-center">-</span>
+              <input
+                type="date"
+                className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
+                value={filterInvoiceDateEnd}
+                onChange={(e) => setFilterInvoiceDateEnd(e.target.value)}
+              />
             </div>
-
-            <div className="flex flex-col w-full">
-              <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Due Date Range</label>
-              <div className="flex flex-col gap-2">
-                <input
-                  type="date"
-                  className="border border-slate-300 p-2.5 rounded-lg w-full focus:ring-2 focus:ring-nreuv-accent focus:border-transparent outline-none"
-                  value={currentFilterDueDateStart}
-                  onChange={(e) => handleFilterChange("filterDueDateStart", e.target.value)}
-                  title="Start Date"
-                />
-                <input
-                  type="date"
-                  className="border border-slate-300 p-2.5 rounded-lg w-full focus:ring-2 focus:ring-nreuv-accent focus:border-transparent outline-none"
-                  value={currentFilterDueDateEnd}
-                  onChange={(e) => handleFilterChange("filterDueDateEnd", e.target.value)}
-                  title="End Date"
-                />
-              </div>
+          </div>
+          
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Submission Deadline Range</label>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
+                value={filterDueDateStart}
+                onChange={(e) => setFilterDueDateStart(e.target.value)}
+              />
+              <span className="text-slate-400 self-center">-</span>
+              <input
+                type="date"
+                className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
+                value={filterDueDateEnd}
+                onChange={(e) => setFilterDueDateEnd(e.target.value)}
+              />
             </div>
+          </div>
           </div>
         </div>
 
@@ -128,17 +126,26 @@ export default function PayrollManagerDashboardClient({ initialInvoices, users }
         ) : (
           <div className="bg-white shadow-md rounded-lg overflow-hidden">
             <table className="min-w-full leading-normal">
-              <thead>
-                <tr>
-                  <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => handleSort("userId")}>
-                    Contractor {currentSortField === "userId" && (currentSortOrder === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => handleSort("invoiceDate")}>
-                    Invoice Date {currentSortField === "invoiceDate" && (currentSortOrder === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => handleSort("dueDate")}>
-                    Due Date {currentSortField === "dueDate" && (currentSortOrder === "asc" ? "↑" : "↓")}
-                  </th>
+            <thead>
+              <tr>
+                <th 
+                  className="px-5 py-3 border-b-2 border-slate-200 bg-slate-100 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-200 transition-colors"
+                  onClick={() => handleSort("user.name")}
+                >
+                  Employee {currentSortField === "user.name" && (currentSortOrder === "asc" ? "↑" : "↓")}
+                </th>
+                <th 
+                  className="px-5 py-3 border-b-2 border-slate-200 bg-slate-100 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-200 transition-colors"
+                  onClick={() => handleSort("invoiceDate")}
+                >
+                  Payment Date {currentSortField === "invoiceDate" && (currentSortOrder === "asc" ? "↑" : "↓")}
+                </th>
+                <th 
+                  className="px-5 py-3 border-b-2 border-slate-200 bg-slate-100 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-200 transition-colors"
+                  onClick={() => handleSort("dueDate")}
+                >
+                  Submission Deadline {currentSortField === "dueDate" && (currentSortOrder === "asc" ? "↑" : "↓")}
+                </th>
                   <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => handleSort("status")}>
                     Status {currentSortField === "status" && (currentSortOrder === "asc" ? "↑" : "↓")}
                   </th>
