@@ -128,10 +128,10 @@ const InvoicePdfDocument = ({ invoice }: InvoicePdfProps) => (
    <Page size="LETTER" style={styles.page}>
   {/* Logo + Header */}
   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-    <Image
-      src="/companylogo1.png"
-      style={{ width: 120, height: 50 }}
-    />
+  <Image
+  src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..." // your base64 string
+  style={{ width: 120, height: 50 }}
+/>
     <View style={{ flexGrow: 1 }}>
       <Text style={styles.headerBar}>INVOICE</Text>
       <View style={styles.headerAccent} />
@@ -145,11 +145,11 @@ const InvoicePdfDocument = ({ invoice }: InvoicePdfProps) => (
             {invoice.invoiceNumber ? `#${invoice.invoiceNumber.toString().padStart(2, "0")}` : "N/A"}
           </Text>
           <Text style={styles.text}>
-            <Text style={styles.sectionTitle}>Invoice Date: </Text>
+            <Text style={styles.sectionTitle}>Payment Date: </Text>
             {invoice.invoiceDate.toLocaleDateString()}
           </Text>
           <Text style={styles.text}>
-            <Text style={styles.sectionTitle}>Due Date: </Text>
+            <Text style={styles.sectionTitle}>Submission Deadline: </Text>
             {invoice.dueDate.toLocaleDateString()}
           </Text>
         </View>

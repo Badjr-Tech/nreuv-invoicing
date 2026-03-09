@@ -49,7 +49,7 @@ export default async function UserDashboard() {
 
   const userInvoices = await getUserInvoices(session.user.id);
 
-  // Find the nearest DRAFT invoice due date
+  // Find the nearest DRAFT submission deadline
   const today = new Date();
   let nextInvoiceDueInDays: number | null = null;
 
@@ -83,10 +83,10 @@ export default async function UserDashboard() {
             <thead>
               <tr>
                 <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Invoice Date
+                  Payment Date
                 </th>
                 <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Due Date
+                  Submission Deadline
                 </th>
                 <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Status

@@ -325,8 +325,8 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
   
   const userRate = userRecord.hourlyRate;
 
-  // Calculate due date (fixed 15 days after invoice date)
-  const dueDate = addDays(invoiceData.invoiceDate, 15);
+  // Calculate due date (date invoice is due to NREUV, assumed 15 days before payment/invoice date based on prior logic)
+  const dueDate = addDays(invoiceData.invoiceDate, -15);
 
   let totalHours = 0;
   let totalCost = 0;
@@ -417,7 +417,7 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
 
 
 
-  const newDueDate = addDays(invoiceData.invoiceDate, 15);
+  const newDueDate = addDays(invoiceData.invoiceDate, -15);
 
   let newTotalHours = 0;
   let newTotalCost = 0;
