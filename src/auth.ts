@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { db } from "./db";
 import { users } from "./db/schema";
 import { eq } from "drizzle-orm";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [

@@ -35,11 +35,35 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
   })));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [itemErrors, setItemErrors] = useState<string[]>([]); // To store individual item errors
 
-  // Find the currently selected pay period
   const selectedPayPeriod = payPeriods.find(
     (p) => new Date(p.invoiceDate).toISOString().split('T')[0] === invoiceDate
   );
+
+  const validateItemDate = (dateString: string, itemIndex: number) => {
+    const newErrors = [...itemErrors];
+    if (!selectedPayPeriod) {
+      newErrors[itemIndex] = ""; // No schedule to validate against
+      setItemErrors(newErrors);
+      return true;
+    }
+
+    const itemDate = new Date(dateString);
+    const pStart = new Date(selectedPayPeriod.periodStart);
+    const pEnd = new Date(selectedPayPeriod.periodEnd);
+    pStart.setHours(0, 0, 0, 0);
+    pEnd.setHours(23, 59, 59, 999);
+
+    if (itemDate < pStart || itemDate > pEnd) {
+      newErrors[itemIndex] = "Date is not within the selected payroll period.";
+      setItemErrors(newErrors);
+      return false;
+    }
+    newErrors[itemIndex] = "";
+    setItemErrors(newErrors);
+    return true;
+  };
 
   const handleAddItem = () => {
     // Default the new item's date to the start of the selected period, or today
@@ -47,16 +71,67 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
       ? new Date(selectedPayPeriod.periodStart).toISOString().split('T')[0] 
       : invoiceDate;
     setItems([...items, { date: defaultItemDate, description: '', hours: 0, categoryId: '' }]);
+    setItemErrors([...itemErrors, ""]); // Add an empty error slot for new item
   };
 
   const handleRemoveItem = (index: number) => {
     setItems(items.filter((_: any, i: number) => i !== index));
+    setItemErrors(itemErrors.filter((_, i) => i !== index)); // Remove error for deleted item
   };
 
   const handleItemChange = (index: number, field: string, value: string | number) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     setItems(newItems);
+    if (field === 'date') {
+      validateItemDate(value as string, index);
+    }
+  };
+
+  const handleSaveProgress = async () => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const validItems = items.filter((item: any) => item.description.trim() !== '' && item.hours > 0 && item.date);
+      if (validItems.length === 0) {
+        throw new Error("Please add at least one valid item with date, description, and hours.");
+      }
+
+      if (selectedPayPeriod) {
+        const pStart = new Date(selectedPayPeriod.periodStart);
+        const pEnd = new Date(selectedPayPeriod.periodEnd);
+        pStart.setHours(0, 0, 0, 0);
+        pEnd.setHours(23, 59, 59, 999);
+
+        for (let i = 0; i < validItems.length; i++) {
+          const itemDate = new Date(validItems[i].date);
+          if (itemDate < pStart || itemDate > pEnd) {
+            throw new Error(`Item at row ${i + 1} has a date (${validItems[i].date}) outside the allowed billing period (${selectedPayPeriod.label}).`);
+          }
+        }
+      }
+
+      await updateInvoice({
+        id: invoice.id,
+        invoiceDate: new Date(invoiceDate),
+        items: validItems.map((item: any) => ({
+          id: item.id,
+          date: new Date(item.date),
+          description: item.description,
+          hours: item.hours,
+          categoryId: item.categoryId || undefined,
+        })),
+      });
+
+      // Just refresh to show updated data without navigating away
+      router.refresh();
+      alert("Progress saved successfully.");
+    } catch (err: any) {
+      setError(err.message || "Failed to save progress.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,7 +163,6 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
       await updateInvoice({
         id: invoice.id,
         invoiceDate: new Date(invoiceDate),
-        paymentScheduleId,
         items: validItems.map((item: any) => ({
           id: item.id, // Will be undefined for new items
           date: new Date(item.date),
@@ -150,8 +224,14 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
                 )}
                 {payPeriods.map((period, idx) => {
                   const dateStr = new Date(period.invoiceDate).toISOString().split('T')[0];
+                  const isPastDate = new Date(period.invoiceDate) < new Date();
                   return (
-                    <option key={idx} value={dateStr}>
+                    <option 
+                      key={idx} 
+                      value={dateStr} 
+                      disabled={isPastDate} 
+                      className={isPastDate ? "text-gray-400" : ""}
+                    >
                       {new Date(period.invoiceDate).toLocaleDateString()} (Covers: {period.label})
                     </option>
                   );
@@ -193,8 +273,12 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
                     required
                     value={item.date}
                     onChange={(e) => handleItemChange(index, 'date', e.target.value)}
-                    className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none"
+                    onBlur={(e) => validateItemDate(e.target.value, index)}
+                    className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none ${itemErrors[index] ? 'border-red-500' : 'border-slate-300'}`}
                   />
+                  {itemErrors[index] && (
+                    <p className="text-red-500 text-xs mt-1">{itemErrors[index]}</p>
+                  )}
                 </div>
                 
                 <div className="w-full md:w-1/4">
@@ -268,13 +352,21 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
           </div>
         </div>
 
-        <div className="flex justify-end pt-6 border-t border-slate-100">
+        <div className="flex justify-between items-center pt-6 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={handleSaveProgress}
+            disabled={isSubmitting}
+            className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium py-2.5 px-6 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors disabled:opacity-50"
+          >
+            {isSubmitting ? "Saving..." : "Save Progress"}
+          </button>
           <button
             type="submit"
             disabled={isSubmitting}
             className="bg-nreuv-primary hover:opacity-90 text-white font-medium py-2.5 px-6 rounded-lg focus:outline-none focus:ring-2 focus:ring-nreuv-accent transition-colors disabled:opacity-50"
           >
-            {isSubmitting ? "Saving..." : "Save Changes"}
+            {isSubmitting ? "Saving..." : "Save & Review Invoice"}
           </button>
         </div>
       </form>

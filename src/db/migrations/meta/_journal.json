@@ -78,6 +78,20 @@
       "when": 1772661003266,
       "tag": "0010_right_adam_warlock",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1772921117956,
+      "tag": "0011_secret_paibok",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1773005165255,
+      "tag": "0012_soft_omega_red",
+      "breakpoints": true
     }
   ]
 }

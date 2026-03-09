@@ -58,20 +58,40 @@ export default async function EditInvoicePage({ params }: { params: { id: string
   const dbCategories = await db.select().from(categories);
   
   // Fetch global schedule
-  const settings = await db.select().from(invoiceDeadlineSettings).limit(1);
-  const globalSchedule = settings[0];
+  const globalSchedule = await db.query.invoiceDeadlineSettings.findFirst({
+    where: (settings, { isNotNull }) => isNotNull(settings.startDate),
+    orderBy: (settings, { desc }) => [desc(settings.startDate)], // Order to get the latest/most relevant
+  });
   const payPeriods = globalSchedule ? generatePayPeriods(globalSchedule as any, 12) : []; // Generate next 12 periods
 
-
   const userRecord = await db.query.users.findFirst({
-    where: eq(users.id, invoice.userId),
+    where: eq(users.id, session.user.id),
+    with: {
+      categoryBundles: {
+        with: {
+          bundle: {
+            with: {
+              categories: {
+                with: {
+                  category: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   });
+
+  const userAssignedCategories = userRecord?.categoryBundles
+    .flatMap(ucb => ucb.bundle.categories.map(bc => bc.category))
+    .filter((cat, index, self) => index === self.findIndex(c => c.id === cat.id)) || [];
 
   return (
     <div className="p-4 md:p-8">
       <EditInvoiceClient
         invoice={invoice}
-        categories={dbCategories}
+        categories={userAssignedCategories.length > 0 ? userAssignedCategories : dbCategories}
         payPeriods={payPeriods}
         hourlyRate={userRecord?.hourlyRate || 0}
       />

@@ -16,9 +16,10 @@ interface NewInvoiceClientProps {
   categories: Category[];
   payPeriods: PayPeriod[];
   hourlyRate: number;
+  nextInvoiceNumber: number;
 }
 
-export default function NewInvoiceClient({ categories, payPeriods, hourlyRate }: NewInvoiceClientProps) {
+export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, nextInvoiceNumber }: NewInvoiceClientProps) {
   const router = useRouter();
   
   // Default to the first pay period if available, otherwise today
@@ -30,11 +31,36 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate }:
   const [items, setItems] = useState([{ date: defaultDateStr, description: '', hours: 0, categoryId: '' }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [itemErrors, setItemErrors] = useState<string[]>([]); // To store individual item errors
 
   // Find the currently selected pay period
   const selectedPayPeriod = payPeriods.find(
     (p) => new Date(p.invoiceDate).toISOString().split('T')[0] === invoiceDate
   );
+
+  const validateItemDate = (dateString: string, itemIndex: number) => {
+    const newErrors = [...itemErrors];
+    if (!selectedPayPeriod) {
+      newErrors[itemIndex] = ""; // No schedule to validate against
+      setItemErrors(newErrors);
+      return true;
+    }
+
+    const itemDate = new Date(dateString);
+    const pStart = new Date(selectedPayPeriod.periodStart);
+    const pEnd = new Date(selectedPayPeriod.periodEnd);
+    pStart.setHours(0, 0, 0, 0);
+    pEnd.setHours(23, 59, 59, 999);
+
+    if (itemDate < pStart || itemDate > pEnd) {
+      newErrors[itemIndex] = "Date is not within the selected payroll period.";
+      setItemErrors(newErrors);
+      return false;
+    }
+    newErrors[itemIndex] = "";
+    setItemErrors(newErrors);
+    return true;
+  };
 
   const handleAddItem = () => {
     // Default the new item's date to the start of the selected period, or today
@@ -42,16 +68,65 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate }:
       ? new Date(selectedPayPeriod.periodStart).toISOString().split('T')[0] 
       : invoiceDate;
     setItems([...items, { date: defaultItemDate, description: '', hours: 0, categoryId: '' }]);
+    setItemErrors([...itemErrors, ""]); // Add an empty error slot for new item
   };
 
   const handleRemoveItem = (index: number) => {
     setItems(items.filter((_, i) => i !== index));
+    setItemErrors(itemErrors.filter((_, i) => i !== index)); // Remove error for deleted item
   };
 
   const handleItemChange = (index: number, field: string, value: string | number) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     setItems(newItems);
+    if (field === 'date') {
+      validateItemDate(value as string, index);
+    }
+  };
+
+  const handleSaveProgress = async () => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const validItems = items.filter(item => item.description.trim() !== '' && item.hours > 0 && item.date);
+      if (validItems.length === 0) {
+        throw new Error("Please add at least one valid item with date, description, and hours to save progress.");
+      }
+
+      // If a pay period is selected, enforce that all items fall within it
+      if (selectedPayPeriod) {
+        const pStart = new Date(selectedPayPeriod.periodStart);
+        const pEnd = new Date(selectedPayPeriod.periodEnd);
+        pStart.setHours(0, 0, 0, 0);
+        pEnd.setHours(23, 59, 59, 999);
+
+        for (let i = 0; i < validItems.length; i++) {
+          const itemDate = new Date(validItems[i].date);
+          if (itemDate < pStart || itemDate > pEnd) {
+            throw new Error(`Item at row ${i + 1} has a date (${validItems[i].date}) outside the allowed billing period (${selectedPayPeriod.label}).`);
+          }
+        }
+      }
+
+      const newInvoiceId = await createInvoice({
+        invoiceDate: new Date(invoiceDate),
+        items: validItems.map(item => ({
+          date: new Date(item.date),
+          description: item.description,
+          hours: item.hours,
+          categoryId: item.categoryId || undefined,
+        })),
+      });
+
+      router.push(`/invoices/${newInvoiceId}/edit`);
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message || "Failed to save progress.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -80,9 +155,8 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate }:
         }
       }
 
-      await createInvoice({
+      const newInvoiceId = await createInvoice({
         invoiceDate: new Date(invoiceDate),
-        paymentScheduleId,
         items: validItems.map(item => ({
           date: new Date(item.date),
           description: item.description,
@@ -91,7 +165,7 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate }:
         })),
       });
 
-      router.push('/');
+      router.push(`/invoices/${newInvoiceId}`);
       router.refresh();
     } catch (err: any) {
       setError(err.message || "Failed to create invoice.");
@@ -102,7 +176,9 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate }:
 
   return (
     <div className="max-w-4xl mx-auto bg-white shadow-sm border border-slate-100 rounded-xl p-8">
-      <h1 className="text-2xl font-bold text-nreuv-black mb-6">Create New Invoice</h1>
+      <div className="flex justify-between items-start mb-6">
+        <h1 className="text-2xl font-bold text-nreuv-black">Create New Invoice <span className="text-slate-500 font-normal">#{nextInvoiceNumber.toString().padStart(2, '0')}</span></h1>
+      </div>
 
       {error && (
         <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg text-sm font-medium">
@@ -118,8 +194,8 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate }:
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="flex flex-col">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="flex flex-col md:col-span-1">
             <label className="text-sm font-semibold text-slate-700 mb-2">Invoice Date</label>
             {payPeriods.length > 0 ? (
               <select
@@ -133,8 +209,14 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate }:
               >
                 {payPeriods.map((period, idx) => {
                   const dateStr = new Date(period.invoiceDate).toISOString().split('T')[0];
+                  const isPastDate = new Date(period.invoiceDate) < new Date();
                   return (
-                    <option key={idx} value={dateStr}>
+                    <option 
+                      key={idx} 
+                      value={dateStr} 
+                      disabled={isPastDate} 
+                      className={isPastDate ? "text-gray-400" : ""}
+                    >
                       {new Date(period.invoiceDate).toLocaleDateString()} (Covers: {period.label})
                     </option>
                   );
@@ -150,8 +232,20 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate }:
               />
             )}
           </div>
-
-
+          <div className="flex flex-col md:col-span-2">
+            <label className="text-sm font-semibold text-slate-700 mb-2">Helpful Notes for Hours</label>
+            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600 space-y-2">
+              <ul className="list-disc list-inside space-y-1">
+                <li>15 minutes = 0.25 hours</li>
+                <li>20 minutes = 0.3 hours (approx.)</li>
+                <li>30 minutes = 0.5 hours</li>
+                <li>45 minutes = 0.75 hours</li>
+              </ul>
+              <p className="font-medium text-slate-700">
+                Note: If you did super short, misc tasks like checking emails, please group them, write a detailed explanation, and put them all under 1 task.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="mt-8">
@@ -176,8 +270,12 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate }:
                     required
                     value={item.date}
                     onChange={(e) => handleItemChange(index, 'date', e.target.value)}
-                    className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none"
+                    onBlur={(e) => validateItemDate(e.target.value, index)}
+                    className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none ${itemErrors[index] ? 'border-red-500' : 'border-slate-300'}`}
                   />
+                  {itemErrors[index] && (
+                    <p className="text-red-500 text-xs mt-1">{itemErrors[index]}</p>
+                  )}
                 </div>
                 
                 <div className="w-full md:w-1/4">
@@ -251,13 +349,21 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate }:
           </div>
         </div>
 
-        <div className="flex justify-end pt-6 border-t border-slate-100">
+        <div className="flex justify-between items-center pt-6 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={handleSaveProgress}
+            disabled={isSubmitting}
+            className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium py-2.5 px-6 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors disabled:opacity-50"
+          >
+            {isSubmitting ? "Saving..." : "Save Progress"}
+          </button>
           <button
             type="submit"
             disabled={isSubmitting}
             className="bg-nreuv-primary hover:opacity-90 text-white font-medium py-2.5 px-6 rounded-lg focus:outline-none focus:ring-2 focus:ring-nreuv-accent transition-colors disabled:opacity-50"
           >
-            {isSubmitting ? "Saving..." : "Create Invoice"}
+            {isSubmitting ? "Saving..." : "Create & Review Invoice"}
           </button>
         </div>
       </form>

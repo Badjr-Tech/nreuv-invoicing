@@ -1,52 +1,250 @@
 "use client";
 
 import React, { useState } from "react";
+
 import {
+
   createOrUpdateInvoiceDeadlineSetting,
-  addAllowedInvoiceDate,
-  deleteAllowedInvoiceDate,
+
+  createCategory,
+
+  updateCategory,
+
+  deleteCategory,
+
+  createCategoryBundle,
+
+  updateCategoryBundle,
+
+  deleteCategoryBundle,
+
+  assignCategoryToBundle,
+
+  unassignCategoryFromBundle,
+
 } from "@/app/actions";
+
 import { invoiceRecurrenceEnum } from "@/db/schema"; // Assuming this enum is accessible client-side
+
 import { useRouter } from "next/navigation";
+
+
 
 type RecurrenceType = typeof invoiceRecurrenceEnum.enumValues[number];
 
+
+
 interface DeadlineSetting {
+
   id: string;
+
   recurrence: RecurrenceType;
+
   customIntervalDays: number | null;
+
   startDate: Date | null;
+
   billingPeriodLengthDays: number | null;
+
   billingPeriodEndOffsetDays: number | null;
+
 }
 
 
 
-interface AllowedDate {
+
+
+
+
+interface Category {
+
+
+
+
+
+
+
   id: string;
-  date: Date;
-  description: string | null;
+
+
+
+
+
+
+
+  name: string;
+
+
+
+
+
+
+
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+interface CategoryBundle {
+
+
+
+
+
+
+
+  id: string;
+
+
+
+
+
+
+
+  name: string;
+
+
+
+
+
+
+
+  categories: { category: Category }[];
+
+
+
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 interface AdminSettingsClientProps {
+
+
+
+
+
+
+
   initialDeadlineSettings: DeadlineSetting[];
-  initialAllowedDates: AllowedDate[];
+
+
+
+
+
+
+
+  initialCategories: Category[];
+
+
+
+
+
+
+
+  initialCategoryBundles: CategoryBundle[];
+
+
+
+
+
+
+
 }
 
+
+
 export default function AdminSettingsClient({
+
+
+
   initialDeadlineSettings,
-  initialAllowedDates,
+
+
+
+  initialCategories,
+
+
+
+  initialCategoryBundles,
+
+
+
 }: AdminSettingsClientProps) {
+
+
+
   const router = useRouter();
+
+
+
   const [deadlineSettings, setDeadlineSettings] = useState<DeadlineSetting[]>(
+
+
+
     initialDeadlineSettings
+
+
+
   );
-  const [allowedDates, setAllowedDates] = useState<AllowedDate[]>(initialAllowedDates);
+
+
+
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
+
+
+
+  const [categoryBundles, setCategoryBundles] = useState<CategoryBundle[]>(initialCategoryBundles);
+
+
+
+
+
+
 
   React.useEffect(() => {
+
+
+
     setDeadlineSettings(initialDeadlineSettings);
-    setAllowedDates(initialAllowedDates);
-  }, [initialDeadlineSettings, initialAllowedDates]);
+
+
+
+    setCategories(initialCategories);
+
+
+
+    setCategoryBundles(initialCategoryBundles);
+
+
+
+  }, [initialDeadlineSettings, initialCategories, initialCategoryBundles]);
 
   // State for new deadline setting form
   const [newRecurrence, setNewRecurrence] = useState<RecurrenceType>("MONTHLY");
@@ -57,9 +255,19 @@ export default function AdminSettingsClient({
   const [newBillingPeriodLengthDays, setNewBillingPeriodLengthDays] = useState<number | undefined>(undefined);
   const [newBillingPeriodEndOffsetDays, setNewBillingPeriodEndOffsetDays] = useState<number | undefined>(undefined);
 
-  // State for new allowed invoice date form
-  const [newAllowedDate, setNewAllowedDate] = useState<string>("");
-  const [newAllowedDateDescription, setNewAllowedDateDescription] = useState<string>("");
+
+
+  // Category management states
+  const [newCategoryName, setNewCategoryName] = useState<string>("");
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState<string>("");
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+
+  // Category Bundle management states
+  const [newBundleName, setNewBundleName] = useState<string>("");
+  const [editingBundleId, setEditingBundleId] = useState<string | null>(null);
+  const [editingBundleName, setEditingBundleName] = useState<string>("");
+  const [bundleError, setBundleError] = useState<string | null>(null);
 
   const handleSaveDeadlineSetting = async () => {
     try {
@@ -82,88 +290,103 @@ export default function AdminSettingsClient({
       setNewBillingPeriodEndOffsetDays(undefined);
     } catch (error: any) {
       alert(`Error saving deadline setting: ${error.message}`);
-    }
-  };
-
-
-
-  const handleAddAllowedDate = async () => {
-    try {
-      if (!newAllowedDate) return;
-      await addAllowedInvoiceDate(new Date(newAllowedDate), newAllowedDateDescription || undefined);
-      router.refresh(); // Refresh the page to get updated list
-      setNewAllowedDate("");
-      setNewAllowedDateDescription("");
-    } catch (error: any) {
-      alert(`Error adding allowed date: ${error.message}`);
-    }
-  };
-
-  const handleDeleteAllowedDate = async (id: string) => {
-    try {
-      await deleteAllowedInvoiceDate(id);
-      router.refresh();
-    } catch (error: any) {
-      alert(`Error deleting allowed date: ${error.message}`);
-    }
-  };
+        }
+      };
+    
+      const handleAddCategory = async () => {
+        try {
+          setCategoryError(null);
+          await createCategory(newCategoryName);
+          router.refresh(); // Revalidate to fetch updated category list
+          setNewCategoryName("");
+        } catch (error: any) {
+          setCategoryError(error.message || "Failed to add category.");
+        }
+      };
+    
+      const handleUpdateCategory = async (id: string) => {
+        try {
+          setCategoryError(null);
+          await updateCategory(id, editingCategoryName);
+          router.refresh(); // Revalidate to fetch updated category list
+          setEditingCategoryId(null);
+          setEditingCategoryName("");
+        } catch (error: any) {
+          setCategoryError(error.message || "Failed to update category.");
+        }
+      };
+    
+      const handleDeleteCategory = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this category? It will be removed from all bundles.")) return;
+        try {
+          setCategoryError(null);
+          await deleteCategory(id);
+          router.refresh(); // Revalidate to fetch updated category list
+        } catch (error: any) {
+          setCategoryError(error.message || "Failed to delete category. Ensure it's not in use by any invoice items.");
+        }
+      };
+    
+      // Category Bundle Handlers
+      const handleAddBundle = async () => {
+        try {
+          setBundleError(null);
+          await createCategoryBundle(newBundleName);
+          router.refresh();
+          setNewBundleName("");
+        } catch (error: any) {
+          setBundleError(error.message || "Failed to add bundle.");
+        }
+      };
+    
+      const handleUpdateBundle = async (id: string) => {
+        try {
+          setBundleError(null);
+          await updateCategoryBundle(id, editingBundleName);
+          router.refresh();
+          setEditingBundleId(null);
+          setEditingBundleName("");
+        } catch (error: any) {
+          setBundleError(error.message || "Failed to update bundle.");
+        }
+      };
+    
+      const handleDeleteBundle = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this category bundle? It will also unassign all categories and users.")) return;
+        try {
+          setBundleError(null);
+          await deleteCategoryBundle(id);
+          router.refresh();
+        } catch (error: any) {
+          setBundleError(error.message || "Failed to delete bundle.");
+        }
+      };
+    
+      const handleAssignCategory = async (bundleId: string, categoryId: string) => {
+        try {
+          setBundleError(null);
+          await assignCategoryToBundle(bundleId, categoryId);
+          router.refresh();
+        } catch (error: any) {
+          setBundleError(error.message || "Failed to assign category to bundle.");
+        }
+      };
+    
+      const handleUnassignCategory = async (bundleId: string, categoryId: string) => {
+        try {
+          setBundleError(null);
+          await unassignCategoryFromBundle(bundleId, categoryId);
+          router.refresh();
+        } catch (error: any) {
+          setBundleError(error.message || "Failed to unassign category from bundle.");
+        }
+      };
 
   return (
     <div className="p-4">
       <h1 className="text-2xl font-bold text-black mb-4">Admin Settings</h1>
 
-      {/* Allowed Invoice Dates */}
-      <div className="bg-white shadow-md rounded-lg p-4 mb-6">
-        <h2 className="text-xl font-semibold text-black mb-4">
-          Allowed Invoice Dates
-        </h2>
-        <p className="text-sm text-gray-600 mb-4">
-          If any dates are added here, contractors will ONLY be able to select these specific dates when creating or editing an invoice.
-        </p>
-        <div className="mb-4">
-          {allowedDates.map((date) => (
-            <div key={date.id} className="mb-2 p-2 border rounded flex justify-between items-center bg-gray-50">
-              <div>
-                <span className="font-semibold">{new Date(date.date).toLocaleDateString()}</span>
-                {date.description && <span className="ml-2 text-gray-600">- {date.description}</span>}
-              </div>
-              <button
-                onClick={() => handleDeleteAllowedDate(date.id)}
-                className="text-red-500 hover:text-red-700 text-sm font-medium"
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          {allowedDates.length === 0 && (
-            <p className="text-gray-500 italic text-sm">No specific dates enforced. Contractors can pick any date.</p>
-          )}
-        </div>
-        <h3 className="text-lg font-medium text-black mb-2">
-          Add New Allowed Date
-        </h3>
-        <div className="flex flex-wrap gap-2">
-          <input
-            type="date"
-            className="border p-2 rounded"
-            value={newAllowedDate}
-            onChange={(e) => setNewAllowedDate(e.target.value)}
-          />
-          <input
-            type="text"
-            className="border p-2 rounded flex-1 min-w-[200px]"
-            placeholder="Description (e.g. Q1 Billing)"
-            value={newAllowedDateDescription}
-            onChange={(e) => setNewAllowedDateDescription(e.target.value)}
-          />
-          <button
-            onClick={handleAddAllowedDate}
-            className="bg-nreuv-primary hover:opacity-90 text-white font-bold py-2 px-4 rounded"
-          >
-            Add Date
-          </button>
-        </div>
-      </div>
+
 
       {/* Invoice Deadline Settings */}
       <div className="bg-white shadow-md rounded-lg p-4 mb-6">
@@ -262,7 +485,221 @@ export default function AdminSettingsClient({
         </button>
       </div>
 
+      {/* Category Management */}
+      <div className="bg-white shadow-md rounded-lg p-4 mb-6">
+        <h2 className="text-xl font-semibold text-black mb-4">Category Management</h2>
+        
+        {categoryError && (
+          <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg text-sm font-medium">
+            {categoryError}
+          </div>
+        )}
 
-    </div>
+        <div className="mb-4">
+          {categories.map((cat) => (
+            <div key={cat.id} className="mb-2 p-2 border rounded flex justify-between items-center bg-gray-50">
+              {editingCategoryId === cat.id ? (
+                <input
+                  type="text"
+                  value={editingCategoryName}
+                  onChange={(e) => setEditingCategoryName(e.target.value)}
+                  className="border p-1 rounded flex-1 mr-2"
+                />
+              ) : (
+                <span className="font-semibold">{cat.name}</span>
+              )}
+              
+              <div className="flex gap-2">
+                {editingCategoryId === cat.id ? (
+                  <>
+                    <button
+                      onClick={() => handleUpdateCategory(cat.id)}
+                      className="text-green-600 hover:text-green-800 text-sm font-medium"
+                      disabled={!editingCategoryName.trim()}
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setEditingCategoryId(null)}
+                      className="text-slate-500 hover:text-slate-700 text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => {
+                        setEditingCategoryId(cat.id);
+                        setEditingCategoryName(cat.name);
+                      }}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteCategory(cat.id)}
+                      className="text-red-500 hover:text-red-700 text-sm font-medium"
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+          {categories.length === 0 && (
+            <p className="text-gray-500 italic text-sm">No categories defined yet.</p>
+          )}
+        </div>
+
+        <h3 className="text-lg font-medium text-black mb-2 border-t border-slate-200 pt-4">Add New Category</h3>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            className="border p-2 rounded flex-1"
+            placeholder="New Category Name"
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+          />
+          <button
+            onClick={handleAddCategory}
+            className="bg-nreuv-primary hover:opacity-90 text-white font-bold py-2 px-4 rounded"
+            disabled={!newCategoryName.trim()}
+          >
+            Add Category
+          </button>
+        </div>
+      </div>
+
+      {/* Category Bundle Management */}
+      <div className="bg-white shadow-md rounded-lg p-4 mb-6">
+        <h2 className="text-xl font-semibold text-black mb-4">Category Bundle Management</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Group categories into bundles and assign them to users. Users will only be able to select categories from their assigned bundles.
+        </p>
+        
+        {bundleError && (
+          <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg text-sm font-medium">
+            {bundleError}
+          </div>
+        )}
+
+        <div className="mb-4">
+          {categoryBundles.map((bundle) => (
+            <div key={bundle.id} className="mb-4 p-3 border rounded bg-gray-50">
+              <div className="flex justify-between items-center mb-2">
+                {editingBundleId === bundle.id ? (
+                  <input
+                    type="text"
+                    value={editingBundleName}
+                    onChange={(e) => setEditingBundleName(e.target.value)}
+                    className="border p-1 rounded flex-1 mr-2"
+                  />
+                ) : (
+                  <span className="font-semibold text-lg">{bundle.name}</span>
+                )}
+                <div className="flex gap-2">
+                  {editingBundleId === bundle.id ? (
+                    <>
+                      <button
+                        onClick={() => handleUpdateBundle(bundle.id)}
+                        className="text-green-600 hover:text-green-800 text-sm font-medium"
+                        disabled={!editingBundleName.trim()}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingBundleId(null)}
+                        className="text-slate-500 hover:text-slate-700 text-sm font-medium"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setEditingBundleId(bundle.id);
+                          setEditingBundleName(bundle.name);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteBundle(bundle.id)}
+                        className="text-red-500 hover:text-red-700 text-sm font-medium"
+                      >
+                        Delete
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Assign categories to this bundle */}
+              <div className="mt-3 pt-3 border-t border-slate-200">
+                <h4 className="font-medium text-slate-700 mb-2">Categories in this Bundle:</h4>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {bundle.categories.length > 0 ? (
+                    bundle.categories.map((bc) => (
+                      <span key={bc.category.id} className="flex items-center bg-nreuv-accent/10 text-nreuv-primary text-xs px-2 py-1 rounded-full">
+                        {bc.category.name}
+                        <button
+                          onClick={() => handleUnassignCategory(bundle.id, bc.category.id)}
+                          className="ml-1 text-nreuv-primary/70 hover:text-nreuv-primary"
+                        >
+                          &times;
+                        </button>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-slate-500 italic">No categories assigned.</span>
+                  )}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <select
+                    className="border p-2 rounded flex-1"
+                    onChange={(e) => handleAssignCategory(bundle.id, e.target.value)}
+                    value="" // Controlled component, reset after selection
+                  >
+                    <option value="">Add Category...</option>
+                    {categories.filter(
+                      (cat) => !bundle.categories.some((bc) => bc.category.id === cat.id)
+                    ).map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          ))}
+          {categoryBundles.length === 0 && (
+            <p className="text-sm text-slate-500 italic">No category bundles defined yet.</p>
+          )}
+        </div>
+
+        <h3 className="text-lg font-medium text-black mb-2 border-t border-slate-200 pt-4">Add New Category Bundle</h3>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            className="border p-2 rounded flex-1"
+            placeholder="New Bundle Name"
+            value={newBundleName}
+            onChange={(e) => setNewBundleName(e.target.value)}
+          />
+          <button
+            onClick={handleAddBundle}
+            className="bg-nreuv-primary hover:opacity-90 text-white font-bold py-2 px-4 rounded"
+            disabled={!newBundleName.trim()}
+          >
+            Add Bundle
+          </button>
+        </div>
+      </div>
+    </div> // Missing closing div for the main wrapper
   );
 }

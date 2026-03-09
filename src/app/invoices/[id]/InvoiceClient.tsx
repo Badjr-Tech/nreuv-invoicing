@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateInvoiceStatus } from '@/app/actions';
 import Link from 'next/link';
+import DownloadPdfButton from '@/components/dashboard/DownloadPdfButton';
 
 interface InvoiceClientProps {
   invoice: any; // Ideally use proper types from schema
@@ -36,20 +37,30 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
     <div className="max-w-4xl mx-auto bg-white shadow-sm border border-slate-100 rounded-xl p-8">
       <div className="flex justify-between items-start mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-nreuv-black">Invoice Details</h1>
+          <h1 className="text-2xl font-bold text-nreuv-black">
+            Invoice {invoice.invoiceNumber ? `#${invoice.invoiceNumber.toString().padStart(2, '0')}` : 'Details'}
+          </h1>
+          {invoice.status === "DRAFT" && (
+            <p className="text-sm text-yellow-700 mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+              This is a draft invoice. Please review it carefully. When ready, click "Submit Invoice" below to send it for approval.
+            </p>
+          )}
           <p className="text-sm text-slate-500 mt-1">ID: {invoice.id}</p>
         </div>
         
-        <span
-          className={`px-3 py-1 text-sm font-semibold rounded-full ${
-            invoice.status === "DRAFT" ? "bg-yellow-100 text-yellow-800" :
-            invoice.status === "PENDING_MANAGER" ? "bg-purple-100 text-purple-800" :
-            invoice.status === "PENDING_ADMIN" ? "bg-blue-100 text-blue-800" :
-            "bg-green-100 text-green-800"
-          }`}
-        >
-          {invoice.status}
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          <span
+            className={`px-3 py-1 text-sm font-semibold rounded-full ${
+              invoice.status === "DRAFT" ? "bg-yellow-100 text-yellow-800" :
+              invoice.status === "PENDING_MANAGER" ? "bg-purple-100 text-purple-800" :
+              invoice.status === "PENDING_ADMIN" ? "bg-blue-100 text-blue-800" :
+              "bg-green-100 text-green-800"
+            }`}
+          >
+            {invoice.status}
+          </span>
+          <DownloadPdfButton invoiceId={invoice.id} />
+        </div>
       </div>
 
       {error && (

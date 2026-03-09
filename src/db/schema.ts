@@ -7,6 +7,7 @@ import {
   pgEnum,
   real,
   integer,
+  serial,
 } from "drizzle-orm/pg-core";
 import { relations, type InferInsertModel } from "drizzle-orm";
 
@@ -60,6 +61,7 @@ export const categories = pgTable("category", {
 
 export const invoices = pgTable("invoice", {
   id: uuid("id").primaryKey().defaultRandom(),
+  invoiceNumber: serial("invoice_number").notNull(),
   invoiceDate: timestamp("invoice_date", { mode: "date" }).notNull(),
   dueDate: timestamp("due_date", { mode: "date" }).notNull(), // dueDate will be fixed to InvoiceDate + 15 days
   status: invoiceStatusEnum("status").default("DRAFT").notNull(),
@@ -105,24 +107,19 @@ export const accountRequests = pgTable("account_request", {
   processedAt: timestamp("processed_at", { mode: "date" }), // New column to store processing time
 });
 
-export const allowedInvoiceDates = pgTable("allowed_invoice_date", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  date: timestamp("date", { mode: "date" }).notNull().unique(),
-  description: text("description"), // Optional description like "Q1 2026"
-});
 
-// Relations
+
+// Update existing relations
 export const usersRelations = relations(users, ({ many }) => ({
   invoices: many(invoices),
   notifications: many(notifications),
   employees: many(users, { relationName: "manager" }),
-}));
-export const userManagerRelations = relations(users, ({ one }) => ({
-  manager: one(users, { fields: [users.managerId], references: [users.id], relationName: "manager" }),
+  categoryBundles: many(userCategoryBundles),
 }));
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
   invoiceItems: many(invoiceItems),
+  categoryBundles: many(categoryBundleCategories),
 }));
 
 export const invoicesRelations = relations(invoices, ({ one, many }) => ({
@@ -150,3 +147,58 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+export const categoryBundles = pgTable("category_bundle", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull().unique(),
+});
+
+export const categoryBundleCategories = pgTable("category_bundle_category", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bundleId: uuid("bundle_id")
+    .notNull()
+    .references(() => categoryBundles.id, { onDelete: "cascade" }),
+  categoryId: uuid("category_id")
+    .notNull()
+    .references(() => categories.id, { onDelete: "cascade" }),
+});
+
+export const userCategoryBundles = pgTable("user_category_bundle", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  bundleId: uuid("bundle_id")
+    .notNull()
+    .references(() => categoryBundles.id, { onDelete: "cascade" }),
+});
+
+// Relations for new tables
+export const categoryBundlesRelations = relations(categoryBundles, ({ many }) => ({
+  categories: many(categoryBundleCategories),
+  users: many(userCategoryBundles),
+}));
+
+export const categoryBundleCategoriesRelations = relations(categoryBundleCategories, ({ one }) => ({
+  bundle: one(categoryBundles, {
+    fields: [categoryBundleCategories.bundleId],
+    references: [categoryBundles.id],
+  }),
+  category: one(categories, {
+    fields: [categoryBundleCategories.categoryId],
+    references: [categories.id],
+  }),
+}));
+
+export const userCategoryBundlesRelations = relations(userCategoryBundles, ({ one }) => ({
+  user: one(users, {
+    fields: [userCategoryBundles.userId],
+    references: [users.id],
+  }),
+  bundle: one(categoryBundles, {
+    fields: [userCategoryBundles.bundleId],
+    references: [categoryBundles.id],
+  }),
+}));
+
+

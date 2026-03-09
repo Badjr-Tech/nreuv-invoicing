@@ -1,15 +1,42 @@
 "use client";
 
 import { useState } from "react";
-import { updateUserRole, updateUserRate, updateUserManager } from "@/app/actions";
+import { updateUserRole, updateUserRate, updateUserManager, assignBundleToUser, unassignBundleFromUser } from "@/app/actions";
 import AddUserModal from "./AddUserModal";
 import ResetPasswordModal from "./ResetPasswordModal";
+import { useRouter } from "next/navigation";
 
-export default function AdminUsersClient({ initialUsers, potentialManagers }: { initialUsers: any[], potentialManagers: any[] }) {
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface CategoryBundle {
+  id: string;
+  name: string;
+}
+
+interface User {
+  id: string;
+  name: string | null;
+  email: string;
+  hourlyRate: number;
+  role: string;
+  managerId: string | null;
+  categoryBundles: { bundle: CategoryBundle }[];
+}
+
+export default function AdminUsersClient({ initialUsers, potentialManagers, allCategoryBundles, allCategories }: { 
+  initialUsers: User[], 
+  potentialManagers: User[], 
+  allCategoryBundles: CategoryBundle[], 
+  allCategories: Category[] 
+}) {
   const [users, setUsers] = useState(initialUsers);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [resetPasswordUser, setResetPasswordUser] = useState<any | null>(null);
+  const router = useRouter();
 
   const handleRoleChange = async (userId: string, newRole: "ADMIN" | "PAYROLL_MANAGER" | "USER" | "EMPLOYEE") => {
     setIsUpdating(userId);
@@ -52,6 +79,24 @@ export default function AdminUsersClient({ initialUsers, potentialManagers }: { 
     setUsers([newUser, ...users]); // Add to top of list
   };
 
+  const handleAssignBundle = async (userId: string, bundleId: string) => {
+    try {
+      await assignBundleToUser(userId, bundleId);
+      router.refresh();
+    } catch (error: any) {
+      alert(error.message || "Failed to assign category bundle.");
+    }
+  };
+
+  const handleUnassignBundle = async (userId: string, bundleId: string) => {
+    try {
+      await unassignBundleFromUser(userId, bundleId);
+      router.refresh();
+    } catch (error: any) {
+      alert(error.message || "Failed to unassign category bundle.");
+    }
+  };
+
   return (
     <>
       <div className="flex justify-end mb-4">
@@ -81,6 +126,9 @@ export default function AdminUsersClient({ initialUsers, potentialManagers }: { 
             </th>
             <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Manager
+            </th>
+            <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Category Bundles
             </th>
             <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Actions
@@ -144,6 +192,43 @@ export default function AdminUsersClient({ initialUsers, potentialManagers }: { 
                 ) : (
                   <span className="text-slate-400 italic">N/A</span>
                 )}
+              </td>
+              <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap gap-1">
+                    {user.categoryBundles.length > 0 ? (
+                      user.categoryBundles.map(ucb => (
+                        <span key={ucb.bundle.id} className="flex items-center bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                          {ucb.bundle.name}
+                          <button 
+                            onClick={() => handleUnassignBundle(user.id, ucb.bundle.id)}
+                            className="ml-1 text-blue-600 hover:text-blue-800"
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-slate-500 italic text-xs">No bundles assigned</span>
+                    )}
+                  </div>
+                  {(user.role === "EMPLOYEE" || user.role === "USER") && (
+                    <select
+                      className="border p-1 rounded text-xs"
+                      onChange={(e) => handleAssignBundle(user.id, e.target.value)}
+                      value="" // Controlled component, reset after selection
+                    >
+                      <option value="">Assign Bundle...</option>
+                      {allCategoryBundles.filter(
+                        (bundle) => !user.categoryBundles.some((ucb) => ucb.bundle.id === bundle.id)
+                      ).map((bundle) => (
+                        <option key={bundle.id} value={bundle.id}>
+                          {bundle.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               </td>
               <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
                 <button

@@ -6,8 +6,21 @@ export default function DownloadPdfButton({ invoiceId }: { invoiceId: string }) 
   const handleDownloadPdf = async () => {
     try {
       const pdfBuffer = await generateInvoicePdf(invoiceId);
-      // Drizzle or next actions return an array or object of uint8, convert to Blob
-      const blob = new Blob([new Uint8Array(pdfBuffer as unknown as Iterable<number>)], { type: "application/pdf" });
+      
+      // Ensure pdfBuffer is an array of numbers or Uint8Array
+      let dataArray: Uint8Array;
+      if (pdfBuffer instanceof Uint8Array) {
+        dataArray = pdfBuffer;
+      } else if (Array.isArray(pdfBuffer)) {
+        dataArray = new Uint8Array(pdfBuffer);
+      } else if (pdfBuffer && typeof pdfBuffer === 'object' && 'data' in pdfBuffer && Array.isArray(pdfBuffer.data)) {
+        // Common serialization of Node.js Buffer is { type: 'Buffer', data: [...] }
+        dataArray = new Uint8Array(pdfBuffer.data);
+      } else {
+        throw new Error("Unexpected PDF buffer format.");
+      }
+
+      const blob = new Blob([dataArray], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

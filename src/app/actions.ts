@@ -2,8 +2,8 @@
 
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { invoices, invoiceItems, invoiceDeadlineSettings, invoiceRecurrenceEnum, notifications, accountRequests, users, InsertUser, allowedInvoiceDates } from "@/db/schema";
-import bcrypt from "bcryptjs";
+import { invoices, invoiceItems, invoiceDeadlineSettings, invoiceRecurrenceEnum, notifications, accountRequests, users, InsertUser, categories, categoryBundles, categoryBundleCategories, userCategoryBundles } from "@/db/schema";
+import bcrypt from "bcrypt";
 import { and, eq, desc, asc, gte, lte, inArray, notInArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import InvoicePdfDocument from "@/lib/pdf-generator";
@@ -22,28 +22,7 @@ interface CreateOrUpdateInvoiceDeadlineSettingData {
 
 
 
-export async function addAllowedInvoiceDate(date: Date, description?: string) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can manage allowed dates.");
-  }
-  await db.insert(allowedInvoiceDates).values({
-    date,
-    description,
-  });
-  revalidatePath("/admin/settings");
-  revalidatePath("/invoices/new");
-}
 
-export async function deleteAllowedInvoiceDate(id: string) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can manage allowed dates.");
-  }
-  await db.delete(allowedInvoiceDates).where(eq(allowedInvoiceDates.id, id));
-  revalidatePath("/admin/settings");
-  revalidatePath("/invoices/new");
-}
 
 // ... (existing createInvoice, updateInvoice, updateInvoiceStatus, generateInvoicePdf, generateInvoicesCsv functions)
 
@@ -83,6 +62,45 @@ export async function createOrUpdateInvoiceDeadlineSetting(data: CreateOrUpdateI
 
   revalidatePath("/admin/settings"); // Revalidate a hypothetical admin settings page
   revalidatePath("/"); // Revalidate home page if affected
+}
+
+export async function createCategory(name: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can manage categories.");
+  }
+  if (!name.trim()) {
+    throw new Error("Category name cannot be empty.");
+  }
+  await db.insert(categories).values({ name: name.trim() });
+  revalidatePath("/admin/settings");
+  revalidatePath("/invoices/new"); // For category dropdowns
+  revalidatePath("/invoices/[id]/edit"); // For category dropdowns
+}
+
+export async function updateCategory(id: string, name: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can manage categories.");
+  }
+  if (!name.trim()) {
+    throw new Error("Category name cannot be empty.");
+  }
+  await db.update(categories).set({ name: name.trim() }).where(eq(categories.id, id));
+  revalidatePath("/admin/settings");
+  revalidatePath("/invoices/new");
+  revalidatePath("/invoices/[id]/edit");
+}
+
+export async function deleteCategory(id: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can manage categories.");
+  }
+  await db.delete(categories).where(eq(categories.id, id));
+  revalidatePath("/admin/settings");
+  revalidatePath("/invoices/new");
+  revalidatePath("/invoices/[id]/edit");
 }
 
 
@@ -206,26 +224,24 @@ export async function approveAccountRequest(requestId: string) {
     throw new Error("Only pending requests can be approved.");
   }
 
-  await db.transaction(async (tx) => {
-    // 1. Create a new user with a temporary password
-    // In a real app, you'd send an email to the user to set their password.
-    const tempPassword = Math.random().toString(36).slice(-10); // Generate a random string
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+  // 1. Create a new user with a temporary password
+  // In a real app, you'd send an email to the user to set their password.
+  const tempPassword = Math.random().toString(36).slice(-10); // Generate a random string
+  const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-    await tx.insert(users).values({
-      name: request.name,
-      email: request.email,
-      password: hashedPassword,
-      role: "USER", // Default role for approved accounts
-      emailVerified: new Date(), // Mark as verified since admin approved
-    });
-
-    // 2. Update the account request status
-    await tx
-      .update(accountRequests)
-      .set({ status: "APPROVED", processedAt: new Date() })
-      .where(eq(accountRequests.id, requestId));
+  await db.insert(users).values({
+    name: request.name,
+    email: request.email,
+    password: hashedPassword,
+    role: "USER", // Default role for approved accounts
+    emailVerified: new Date(), // Mark as verified since admin approved
   });
+
+  // 2. Update the account request status
+  await db
+    .update(accountRequests)
+    .set({ status: "APPROVED", processedAt: new Date() })
+    .where(eq(accountRequests.id, requestId));
 
   revalidatePath("/admin/account-requests"); // Revalidate the admin account requests page
   revalidatePath("/admin/users"); // Revalidate the admin users page
@@ -323,33 +339,28 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
     totalCost += item.hours * userRate;
   }
 
-  const [newInvoice] = await db.transaction(async (tx) => {
-    const [invoice] = await tx
-      .insert(invoices)
-      .values({
-        userId: userId,
-        invoiceDate: invoiceData.invoiceDate,
-        dueDate: dueDate,
-        totalHours: totalHours,
-        totalCost: totalCost,
-      })
-      .returning();
+  const [newInvoice] = await db
+    .insert(invoices)
+    .values({
+      userId: userId,
+      invoiceDate: invoiceData.invoiceDate,
+      dueDate: dueDate,
+      totalHours: totalHours,
+      totalCost: totalCost,
+    })
+    .returning();
 
-    if (!invoice) {
-      tx.rollback();
-      throw new Error("Failed to create invoice.");
-    }
+  if (!newInvoice) {
+    throw new Error("Failed to create invoice.");
+  }
 
-    const itemsToInsert = invoiceData.items.map((item) => ({
-      ...item,
-      rate: userRate,
-      invoiceId: invoice.id,
-    }));
+  const itemsToInsert = invoiceData.items.map((item) => ({
+    ...item,
+    rate: userRate,
+    invoiceId: newInvoice.id,
+  }));
 
-    await tx.insert(invoiceItems).values(itemsToInsert);
-
-    return [invoice];
-  });
+  await db.insert(invoiceItems).values(itemsToInsert);
 
   if (!newInvoice) {
     throw new Error("Failed to create invoice.");
@@ -419,64 +430,62 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
     newTotalCost += item.hours * userRate;
   }
 
-  await db.transaction(async (tx) => {
-    // Update invoice details
-    await tx
-      .update(invoices)
-      .set({
-        invoiceDate: invoiceData.invoiceDate,
-        dueDate: newDueDate,
-        totalHours: newTotalHours,
-        totalCost: newTotalCost,
-        // Status remains DRAFT unless explicitly changed by updateInvoiceStatus
-      })
-      .where(eq(invoices.id, invoiceData.id));
+  // Update invoice details
+  await db
+    .update(invoices)
+    .set({
+      invoiceDate: invoiceData.invoiceDate,
+      dueDate: newDueDate,
+      totalHours: newTotalHours,
+      totalCost: newTotalCost,
+      // Status remains DRAFT unless explicitly changed by updateInvoiceStatus
+    })
+    .where(eq(invoices.id, invoiceData.id));
 
-    const existingItemIds = existingInvoice.items.map((item) => item.id);
-    const updatedItemIds = invoiceData.items.filter((item) => item.id).map((item) => item.id!);
+  const existingItemIds = existingInvoice.items.map((item) => item.id);
+  const updatedItemIds = invoiceData.items.filter((item) => item.id).map((item) => item.id!);
 
-    // Delete items that are no longer present
-    if (existingItemIds.length > 0 && updatedItemIds.length > 0) {
-      await tx
-        .delete(invoiceItems)
-        .where(
-          and(
-            eq(invoiceItems.invoiceId, invoiceData.id),
-            notInArray(invoiceItems.id, updatedItemIds)
-          )
-        );
-    } else if (existingItemIds.length > 0 && updatedItemIds.length === 0) {
-      // If all items are removed
-      await tx.delete(invoiceItems).where(eq(invoiceItems.invoiceId, invoiceData.id));
-    }
+  // Delete items that are no longer present
+  if (existingItemIds.length > 0 && updatedItemIds.length > 0) {
+    await db
+      .delete(invoiceItems)
+      .where(
+        and(
+          eq(invoiceItems.invoiceId, invoiceData.id),
+          notInArray(invoiceItems.id, updatedItemIds)
+        )
+      );
+  } else if (existingItemIds.length > 0 && updatedItemIds.length === 0) {
+    // If all items are removed
+    await db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, invoiceData.id));
+  }
 
 
-    for (const item of invoiceData.items) {
-      if (item.id) {
-        // Update existing item
-        await tx
-          .update(invoiceItems)
-          .set({
-            date: item.date,
-            description: item.description,
-            hours: item.hours,
-            rate: userRate,
-            categoryId: item.categoryId || null,
-          })
-          .where(and(eq(invoiceItems.id, item.id), eq(invoiceItems.invoiceId, invoiceData.id)));
-      } else {
-        // Insert new item
-        await tx.insert(invoiceItems).values({
-          invoiceId: invoiceData.id,
+  for (const item of invoiceData.items) {
+    if (item.id) {
+      // Update existing item
+      await db
+        .update(invoiceItems)
+        .set({
           date: item.date,
           description: item.description,
           hours: item.hours,
           rate: userRate,
           categoryId: item.categoryId || null,
-        });
-      }
+        })
+        .where(and(eq(invoiceItems.id, item.id), eq(invoiceItems.invoiceId, invoiceData.id)));
+    } else {
+      // Insert new item
+      await db.insert(invoiceItems).values({
+        invoiceId: invoiceData.id,
+        date: item.date,
+        description: item.description,
+        hours: item.hours,
+        rate: userRate,
+        categoryId: item.categoryId || null,
+      });
     }
-  });
+  }
 
   revalidatePath(`/invoices/${invoiceData.id}`); // Revalidate the specific invoice page
   revalidatePath("/invoices"); // Revalidate the invoices list page
@@ -792,4 +801,90 @@ export async function addUserManually(data: any) {
 
   revalidatePath("/admin/users");
   return newUser;
+}
+
+export async function createCategoryBundle(name: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can manage category bundles.");
+  }
+  if (!name.trim()) {
+    throw new Error("Category bundle name cannot be empty.");
+  }
+  await db.insert(categoryBundles).values({ name: name.trim() });
+  revalidatePath("/admin/settings");
+}
+
+export async function updateCategoryBundle(id: string, name: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can manage category bundles.");
+  }
+  if (!name.trim()) {
+    throw new Error("Category bundle name cannot be empty.");
+  }
+  await db.update(categoryBundles).set({ name: name.trim() }).where(eq(categoryBundles.id, id));
+  revalidatePath("/admin/settings");
+}
+
+export async function deleteCategoryBundle(id: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can manage category bundles.");
+  }
+  await db.delete(categoryBundles).where(eq(categoryBundles.id, id));
+  revalidatePath("/admin/settings");
+}
+
+export async function assignCategoryToBundle(bundleId: string, categoryId: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can manage category bundles.");
+  }
+  await db.insert(categoryBundleCategories).values({ bundleId, categoryId });
+  revalidatePath("/admin/settings");
+}
+
+export async function unassignCategoryFromBundle(bundleId: string, categoryId: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can manage category bundles.");
+  }
+  await db.delete(categoryBundleCategories).where(
+    and(
+      eq(categoryBundleCategories.bundleId, bundleId),
+      eq(categoryBundleCategories.categoryId, categoryId)
+    )
+  );
+  revalidatePath("/admin/settings");
+}
+
+export async function assignBundleToUser(userId: string, bundleId: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can manage user category bundles.");
+  }
+  // Check if user already has this bundle
+  const existing = await db.query.userCategoryBundles.findFirst({
+    where: and(eq(userCategoryBundles.userId, userId), eq(userCategoryBundles.bundleId, bundleId)),
+  });
+  if (existing) {
+    throw new Error("User already has this bundle assigned.");
+  }
+  await db.insert(userCategoryBundles).values({ userId, bundleId });
+  revalidatePath("/admin/users"); // Revalidate user management page
+}
+
+export async function unassignBundleFromUser(userId: string, bundleId: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can manage user category bundles.");
+  }
+  await db.delete(userCategoryBundles).where(
+    and(
+      eq(userCategoryBundles.userId, userId),
+      eq(userCategoryBundles.bundleId, bundleId)
+    )
+  );
+  revalidatePath("/admin/users"); // Revalidate user management page
 }

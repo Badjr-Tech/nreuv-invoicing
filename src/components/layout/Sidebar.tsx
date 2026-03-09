@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { auth, signOut } from "@/auth";
 import { db } from "@/db"; // Import db
 import { notifications } from "@/db/schema"; // Import notifications schema
@@ -19,7 +20,11 @@ export default async function Sidebar() {
 
   return (
     <aside className="w-64 bg-nreuv-primary text-white p-4 space-y-4 shadow-lg flex flex-col">
-      <h2 className="text-2xl font-bold mb-6 tracking-wide">Invoice Platform</h2>
+      <div className="mb-6">
+        <Link href="/">
+          <Image src="/companylogo1.png" alt="Company Logo" width={150} height={40} priority />
+        </Link>
+      </div>
       <nav className="flex-1">
         <ul className="space-y-1">
           <li>

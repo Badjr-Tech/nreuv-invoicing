@@ -1,9 +1,9 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { invoiceDeadlineSettings, allowedInvoiceDates } from "@/db/schema";
+import { invoiceDeadlineSettings, categories, categoryBundles, categoryBundleCategories } from "@/db/schema";
 import { redirect } from "next/navigation";
 import AdminSettingsClient from "./AdminSettingsClient";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 
 async function getAdminSettingsData() {
   const session = await auth();
@@ -13,20 +13,31 @@ async function getAdminSettingsData() {
   }
 
   const existingDeadlineSettings = await db.query.invoiceDeadlineSettings.findMany();
-  const existingAllowedDates = await db.query.allowedInvoiceDates.findMany({
-    orderBy: [asc(allowedInvoiceDates.date)]
+  const existingCategories = await db.query.categories.findMany({
+    orderBy: [asc(categories.name)]
+  });
+  const existingCategoryBundles = await db.query.categoryBundles.findMany({
+    orderBy: [asc(categoryBundles.name)],
+    with: {
+      categories: {
+        with: {
+          category: true, // Fetch the actual category details
+        },
+      },
+    },
   });
 
-  return { existingDeadlineSettings, existingAllowedDates };
+  return { existingDeadlineSettings, existingCategories, existingCategoryBundles };
 }
 
 export default async function AdminSettingsPage() {
-  const { existingDeadlineSettings, existingAllowedDates } = await getAdminSettingsData();
+  const { existingDeadlineSettings, existingCategories, existingCategoryBundles } = await getAdminSettingsData();
 
   return (
     <AdminSettingsClient
       initialDeadlineSettings={existingDeadlineSettings}
-      initialAllowedDates={existingAllowedDates}
+      initialCategories={existingCategories}
+      initialCategoryBundles={existingCategoryBundles}
     />
   );
 }
