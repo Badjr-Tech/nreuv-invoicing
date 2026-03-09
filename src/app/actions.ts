@@ -325,8 +325,14 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
   
   const userRate = userRecord.hourlyRate;
 
-  // Calculate due date (date invoice is due to NREUV, assumed 15 days before payment/invoice date based on prior logic)
-  const dueDate = addDays(invoiceData.invoiceDate, -15);
+  // Fetch active schedule to determine submission deadline (due date) relative to payment date (invoice date)
+  const schedule = await db.query.invoiceDeadlineSettings.findFirst({
+    where: (settings, { isNotNull }) => isNotNull(settings.startDate),
+    orderBy: (settings, { desc }) => [desc(settings.startDate)],
+  });
+
+  const offsetDays = schedule?.billingPeriodEndOffsetDays ?? 7; // Default to 7 if no schedule is found
+  const dueDate = addDays(invoiceData.invoiceDate, -offsetDays);
 
   let totalHours = 0;
   let totalCost = 0;
@@ -417,7 +423,14 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
 
 
 
-  const newDueDate = addDays(invoiceData.invoiceDate, -15);
+  // Fetch active schedule to determine submission deadline
+  const schedule = await db.query.invoiceDeadlineSettings.findFirst({
+    where: (settings, { isNotNull }) => isNotNull(settings.startDate),
+    orderBy: (settings, { desc }) => [desc(settings.startDate)],
+  });
+
+  const offsetDays = schedule?.billingPeriodEndOffsetDays ?? 7;
+  const newDueDate = addDays(invoiceData.invoiceDate, -offsetDays);
 
   let newTotalHours = 0;
   let newTotalCost = 0;
