@@ -16,9 +16,9 @@ interface CreateOrUpdateInvoiceDeadlineSettingData {
   recurrence: "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "CUSTOM";
   customIntervalDays?: number;
   startDate?: Date;
-  billingPeriodLengthDays?: number;
-  billingPeriodEndOffsetDays?: number;
-  paymentOffsetDays?: number;
+  billingPeriodLengthDays?: number; // Renamed to coverageLengthDays conceptually
+  // billingPeriodEndOffsetDays is removed
+  paymentOffsetDays?: number; // Used for submission deadline offset from payment date
 }
 
 
@@ -47,7 +47,7 @@ export async function createOrUpdateInvoiceDeadlineSetting(data: CreateOrUpdateI
         customIntervalDays: data.customIntervalDays || null,
         startDate: data.startDate || null,
         billingPeriodLengthDays: data.billingPeriodLengthDays || null,
-        billingPeriodEndOffsetDays: data.billingPeriodEndOffsetDays || null,
+        // billingPeriodEndOffsetDays: data.billingPeriodEndOffsetDays || null, // Removed
         paymentOffsetDays: data.paymentOffsetDays || null,
       })
       .where(eq(invoiceDeadlineSettings.id, data.id));
@@ -58,7 +58,7 @@ export async function createOrUpdateInvoiceDeadlineSetting(data: CreateOrUpdateI
       customIntervalDays: data.customIntervalDays || null,
       startDate: data.startDate || null,
       billingPeriodLengthDays: data.billingPeriodLengthDays || null,
-      billingPeriodEndOffsetDays: data.billingPeriodEndOffsetDays || null,
+      // billingPeriodEndOffsetDays: data.billingPeriodEndOffsetDays || null, // Removed
       paymentOffsetDays: data.paymentOffsetDays || null,
     });
   }
@@ -326,43 +326,40 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
     throw new Error("User not found.");
   }
   
-    const userRate = userRecord.hourlyRate;
+  const userRate = userRecord.hourlyRate;
+
+  // The invoiceData.invoiceDate from the form is now the Payment Date
+  const paymentDate = invoiceData.invoiceDate;
+
+  // Fetch active schedule to determine submission deadline
+  const schedule = await db.query.invoiceDeadlineSettings.findFirst({
+    where: (settings, { isNotNull }) => isNotNull(settings.startDate),
+    orderBy: (settings, { desc }) => [desc(settings.startDate)],
+  });
+
+  const submissionDeadlineOffset = schedule?.paymentOffsetDays ?? 7; // Default to 7 days after Payment Date
+  const submissionDeadline = addDays(paymentDate, submissionDeadlineOffset);
   
-    // The invoiceData.invoiceDate from the form is now the End of Billing Period
-    const selectedEndOfBillingPeriod = invoiceData.invoiceDate;
-  
-    // Fetch active schedule to determine payment date and submission deadline
-    const schedule = await db.query.invoiceDeadlineSettings.findFirst({
-      where: (settings, { isNotNull }) => isNotNull(settings.startDate),
-      orderBy: (settings, { desc }) => [desc(settings.startDate)],
-    });
-  
-    const submissionDeadlineOffset = schedule?.billingPeriodEndOffsetDays ?? 0; // Days before EOBP for submission
-    const submissionDeadline = addDays(selectedEndOfBillingPeriod, -submissionDeadlineOffset);
-  
-    const paymentOffsetDays = schedule?.paymentOffsetDays ?? 0; // Days after EOBP for payment
-    const paymentDate = addDays(selectedEndOfBillingPeriod, paymentOffsetDays);
-    
-    let totalHours = 0;
-    let totalCost = 0;
-  
-    for (const item of invoiceData.items) {
-      if (item.hours <= 0) {
-        throw new Error("Invoice item hours must be a positive number.");
-      }
-      totalHours += item.hours;
-      totalCost += item.hours * userRate;
+  let totalHours = 0;
+  let totalCost = 0;
+
+  for (const item of invoiceData.items) {
+    if (item.hours <= 0) {
+      throw new Error("Invoice item hours must be a positive number.");
     }
-  
-    const [newInvoice] = await db
-      .insert(invoices)
-      .values({
-        userId: userId,
-        invoiceDate: paymentDate, // This is the actual Payment Date
-        dueDate: submissionDeadline, // This is the actual Submission Deadline
-        totalHours: totalHours,
-        totalCost: totalCost,
-      })    .returning();
+    totalHours += item.hours;
+    totalCost += item.hours * userRate;
+  }
+
+  const [newInvoice] = await db
+    .insert(invoices)
+    .values({
+      userId: userId,
+      invoiceDate: paymentDate, // This is the actual Payment Date
+      dueDate: submissionDeadline, // This is the actual Submission Deadline
+      totalHours: totalHours,
+      totalCost: totalCost,
+    })
 
   if (!newInvoice) {
     throw new Error("Failed to create invoice.");

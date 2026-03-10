@@ -21,32 +21,33 @@ export function generatePayPeriods(schedule: GlobalSchedule, count: number = 10)
   }
 
   const periods: PayPeriod[] = [];
-  let currentEndOfBillingPeriod = new Date(schedule.startDate); // startDate is now the first End of Billing Period
+  let currentPaymentDate = new Date(schedule.startDate); // startDate is now the first Payment Date
 
-  const lengthDays = schedule.billingPeriodLengthDays || 14;
+  const coverageLengthDays = schedule.billingPeriodLengthDays || 14; // This is the length of the coverage period
 
   for (let i = 0; i < count; i++) {
-    const periodStart = addDays(currentEndOfBillingPeriod, -(lengthDays - 1)); // Start of coverage range
+    const periodEnd = currentPaymentDate; // Coverage ends on Payment Date
+    const periodStart = addDays(currentPaymentDate, -(coverageLengthDays - 1)); // Coverage starts 'coverageLengthDays - 1' days before Payment Date
 
     periods.push({
-      invoiceDate: currentEndOfBillingPeriod, // User picks this date, it is the EOBP
+      invoiceDate: currentPaymentDate, // User picks this date, it is the Payment Date
       periodStart: periodStart,
-      periodEnd: currentEndOfBillingPeriod,
-      label: `${periodStart.toLocaleDateString()} - ${currentEndOfBillingPeriod.toLocaleDateString()}`,
+      periodEnd: periodEnd,
+      label: `${periodStart.toLocaleDateString()} - ${periodEnd.toLocaleDateString()}`,
     });
 
-    // Advance to the next End of Billing Period based on recurrence
+    // Advance to the next Payment Date based on recurrence
     if (schedule.recurrence === "WEEKLY") {
-      currentEndOfBillingPeriod = addWeeks(currentEndOfBillingPeriod, 1);
+      currentPaymentDate = addWeeks(currentPaymentDate, 1);
     } else if (schedule.recurrence === "BIWEEKLY") {
-      currentEndOfBillingPeriod = addWeeks(currentEndOfBillingPeriod, 2);
+      currentPaymentDate = addWeeks(currentPaymentDate, 2);
     } else if (schedule.recurrence === "MONTHLY") {
-      currentEndOfBillingPeriod = addMonths(currentEndOfBillingPeriod, 1);
+      currentPaymentDate = addMonths(currentPaymentDate, 1);
     } else if (schedule.recurrence === "CUSTOM" && schedule.customIntervalDays) {
-      currentEndOfBillingPeriod = addDays(currentEndOfBillingPeriod, schedule.customIntervalDays);
+      currentPaymentDate = addDays(currentPaymentDate, schedule.customIntervalDays);
     } else {
       // Fallback
-      currentEndOfBillingPeriod = addWeeks(currentEndOfBillingPeriod, 2);
+      currentPaymentDate = addWeeks(currentPaymentDate, 2);
     }
   }
 

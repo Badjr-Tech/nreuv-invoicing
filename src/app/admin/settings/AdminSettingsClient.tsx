@@ -271,7 +271,7 @@ export default function AdminSettingsClient({
   );
   const [newStartDate, setNewStartDate] = useState<string>("");
   const [newBillingPeriodLengthDays, setNewBillingPeriodLengthDays] = useState<number | undefined>(undefined);
-  const [newBillingPeriodEndOffsetDays, setNewBillingPeriodEndOffsetDays] = useState<number | undefined>(undefined);
+  // newBillingPeriodEndOffsetDays is removed
   const [newPaymentOffsetDays, setNewPaymentOffsetDays] = useState<number | undefined>(undefined);
 
 
@@ -294,7 +294,7 @@ export default function AdminSettingsClient({
         customIntervalDays: newCustomInterval,
         startDate: newStartDate ? new Date(newStartDate) : undefined,
         billingPeriodLengthDays: newBillingPeriodLengthDays,
-        billingPeriodEndOffsetDays: newBillingPeriodEndOffsetDays,
+        // billingPeriodEndOffsetDays is removed
         paymentOffsetDays: newPaymentOffsetDays,
       });
       // Re-fetch or update state
@@ -306,7 +306,7 @@ export default function AdminSettingsClient({
       setNewCustomInterval(undefined);
       setNewStartDate("");
       setNewBillingPeriodLengthDays(undefined);
-      setNewBillingPeriodEndOffsetDays(undefined);
+      // setNewBillingPeriodEndOffsetDays(undefined); // Removed
       setNewPaymentOffsetDays(undefined);
     } catch (error: any) {
       alert(`Error saving deadline setting: ${error.message}`);
@@ -473,7 +473,7 @@ export default function AdminSettingsClient({
           )}
 
           <div className="flex flex-col">
-            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Billing Period Length (Days)</label>
+            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Coverage Period Length (Days)</label>
             <input
               type="number"
               min="1"
@@ -485,19 +485,7 @@ export default function AdminSettingsClient({
           </div>
 
           <div className="flex flex-col">
-            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Billing Ends X Days Before Invoice</label>
-            <input
-              type="number"
-              min="0"
-              placeholder="e.g., 5"
-              className="border p-2 rounded outline-none focus:ring-2 focus:ring-nreuv-accent"
-              value={newBillingPeriodEndOffsetDays || ""}
-              onChange={(e) => setNewBillingPeriodEndOffsetDays(parseInt(e.target.value) || undefined)}
-            />
-          </div>
-
-          <div className="flex flex-col">
-            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Payment X Days After Invoice</label>
+            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Submission Deadline X Days After Payment</label>
             <input
               type="number"
               min="0"
