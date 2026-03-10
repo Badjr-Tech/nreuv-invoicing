@@ -14,14 +14,27 @@ export default function AdminDashboardClient({ initialInvoices, users }: { initi
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const currentSortField = searchParams.get("sortField") || "invoiceDate";
-  const currentSortOrder = (searchParams.get("sortOrder") as "asc" | "desc") || "desc";
-  const currentFilterUser = searchParams.get("filterUser") || "";
-  const currentFilterStatus = (searchParams.get("filterStatus") as InvoiceStatus | "") || "";
-  const currentFilterInvoiceDateStart = searchParams.get("filterInvoiceDateStart") || "";
-  const currentFilterInvoiceDateEnd = searchParams.get("filterInvoiceDateEnd") || "";
-  const currentFilterDueDateStart = searchParams.get("filterDueDateStart") || "";
-  const currentFilterDueDateEnd = searchParams.get("filterDueDateEnd") || "";
+  const [currentFilterUser, setCurrentFilterUser] = useState("");
+  const [currentFilterStatus, setCurrentFilterStatus] = useState<"DRAFT" | "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED" | "">("");
+  const [filterPaymentDateStart, setFilterPaymentDateStart] = useState("");
+  const [filterPaymentDateEnd, setFilterPaymentDateEnd] = useState("");
+  const [filterDueDateStart, setFilterDueDateStart] = useState("");
+  const [filterDueDateEnd, setFilterDueDateEnd] = useState("");
+
+  const [currentSortField, setCurrentSortField] = useState("invoiceDate");
+  const [currentSortOrder, setCurrentSortOrder] = useState<"asc" | "desc">("desc");
+
+  // Effect to update local state when searchParams change (e.g., from pagination or outside filters)
+  useEffect(() => {
+    setCurrentFilterUser(searchParams.get("filterUser") || "");
+    setCurrentFilterStatus((searchParams.get("filterStatus") as "DRAFT" | "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED" | "") || "");
+    setFilterPaymentDateStart(searchParams.get("filterPaymentDateStart") || "");
+    setFilterPaymentDateEnd(searchParams.get("filterPaymentDateEnd") || "");
+    setFilterDueDateStart(searchParams.get("filterDueDateStart") || "");
+    setFilterDueDateEnd(searchParams.get("filterDueDateEnd") || "");
+    setCurrentSortField(searchParams.get("sortField") || "invoiceDate"); // Keep as "invoiceDate" as it refers to the DB field
+    setCurrentSortOrder((searchParams.get("sortOrder") as "asc" | "desc") || "desc");
+  }, [searchParams]);
 
   const handleSort = (field: string) => {
     const order = currentSortField === field && currentSortOrder === "asc" ? "desc" : "asc";
@@ -53,7 +66,7 @@ export default function AdminDashboardClient({ initialInvoices, users }: { initi
             <h2 className="text-xl font-bold text-nreuv-black">Filters & Export</h2>
             <DownloadCsvButton />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <div className="flex flex-col w-full">
               <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Contractor</label>
               <select 
@@ -83,25 +96,24 @@ export default function AdminDashboardClient({ initialInvoices, users }: { initi
               </select>
             </div>
 
-          <div className="flex flex-col">
-            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Payment Date Range</label>
-            <div className="flex gap-2">
-              <input
-                type="date"
-                className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
-                value={filterInvoiceDateStart}
-                onChange={(e) => setFilterInvoiceDateStart(e.target.value)}
-              />
-              <span className="text-slate-400 self-center">-</span>
-              <input
-                type="date"
-                className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
-                value={filterInvoiceDateEnd}
-                onChange={(e) => setFilterInvoiceDateEnd(e.target.value)}
-              />
-            </div>
-          </div>
-          
+                      <div className="flex flex-col">
+                        <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Payment Date Range</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="date"
+                            className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
+                            value={filterPaymentDateStart}
+                            onChange={(e) => handleFilterChange("filterPaymentDateStart", e.target.value)}
+                          />
+                          <span className="text-slate-400 self-center">-</span>
+                          <input
+                            type="date"
+                            className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
+                            value={filterPaymentDateEnd}
+                            onChange={(e) => handleFilterChange("filterPaymentDateEnd", e.target.value)}
+                          />
+                        </div>
+                      </div>          
           <div className="flex flex-col">
             <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Submission Deadline Range</label>
             <div className="flex gap-2">

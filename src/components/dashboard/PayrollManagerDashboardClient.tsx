@@ -13,14 +13,27 @@ export default function PayrollManagerDashboardClient({ initialInvoices, users }
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const currentSortField = searchParams.get("sortField") || "invoiceDate";
-  const currentSortOrder = (searchParams.get("sortOrder") as "asc" | "desc") || "desc";
-  const currentFilterUser = searchParams.get("filterUser") || "";
-  const currentFilterStatus = (searchParams.get("filterStatus") as InvoiceStatus | "") || "";
-  const currentFilterInvoiceDateStart = searchParams.get("filterInvoiceDateStart") || "";
-  const currentFilterInvoiceDateEnd = searchParams.get("filterInvoiceDateEnd") || "";
-  const currentFilterDueDateStart = searchParams.get("filterDueDateStart") || "";
-  const currentFilterDueDateEnd = searchParams.get("filterDueDateEnd") || "";
+  const [currentFilterUser, setCurrentFilterUser] = useState("");
+  const [currentFilterStatus, setCurrentFilterStatus] = useState<"DRAFT" | "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED" | "">("");
+  const [filterPaymentDateStart, setFilterPaymentDateStart] = useState("");
+  const [filterPaymentDateEnd, setFilterPaymentDateEnd] = useState("");
+  const [filterDueDateStart, setFilterDueDateStart] = useState("");
+  const [filterDueDateEnd, setFilterDueDateEnd] = useState("");
+
+  const [currentSortField, setCurrentSortField] = useState("invoiceDate");
+  const [currentSortOrder, setCurrentSortOrder] = useState<"asc" | "desc">("desc");
+
+  // Effect to update local state when searchParams change (e.g., from pagination or outside filters)
+  useEffect(() => {
+    setCurrentFilterUser(searchParams.get("filterUser") || "");
+    setCurrentFilterStatus((searchParams.get("filterStatus") as "DRAFT" | "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED" | "") || "");
+    setFilterPaymentDateStart(searchParams.get("filterPaymentDateStart") || "");
+    setFilterPaymentDateEnd(searchParams.get("filterPaymentDateEnd") || "");
+    setFilterDueDateStart(searchParams.get("filterDueDateStart") || "");
+    setFilterDueDateEnd(searchParams.get("filterDueDateEnd") || "");
+    setCurrentSortField(searchParams.get("sortField") || "invoiceDate"); // Keep as "invoiceDate" as it refers to the DB field
+    setCurrentSortOrder((searchParams.get("sortOrder") as "asc" | "desc") || "desc");
+  }, [searchParams]);
 
   const handleSort = (field: string) => {
     const order = currentSortField === field && currentSortOrder === "asc" ? "desc" : "asc";
@@ -51,7 +64,7 @@ export default function PayrollManagerDashboardClient({ initialInvoices, users }
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-nreuv-black">Filters</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <div className="flex flex-col w-full">
               <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Contractor</label>
               <select 
