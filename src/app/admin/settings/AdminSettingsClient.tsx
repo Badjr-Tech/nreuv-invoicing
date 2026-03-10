@@ -54,15 +54,11 @@ interface DeadlineSetting {
 
 
 
-  billingPeriodLengthDays: number | null;
+  billingPeriodLengthDays: number | null; // This is Coverage Period Length
 
 
 
-  billingPeriodEndOffsetDays: number | null;
-
-
-
-  paymentOffsetDays: number | null;
+  submissionOffsetDays: number | null; // Days before Payment Date for Submission Deadline
 
 
 
@@ -271,8 +267,7 @@ export default function AdminSettingsClient({
   );
   const [newStartDate, setNewStartDate] = useState<string>("");
   const [newBillingPeriodLengthDays, setNewBillingPeriodLengthDays] = useState<number | undefined>(undefined);
-  // newBillingPeriodEndOffsetDays is removed
-  const [newPaymentOffsetDays, setNewPaymentOffsetDays] = useState<number | undefined>(undefined);
+  const [newSubmissionOffsetDays, setNewSubmissionOffsetDays] = useState<number | undefined>(undefined);
 
 
   // Category management states
@@ -294,8 +289,7 @@ export default function AdminSettingsClient({
         customIntervalDays: newCustomInterval,
         startDate: newStartDate ? new Date(newStartDate) : undefined,
         billingPeriodLengthDays: newBillingPeriodLengthDays,
-        // billingPeriodEndOffsetDays is removed
-        paymentOffsetDays: newPaymentOffsetDays,
+        submissionOffsetDays: newSubmissionOffsetDays,
       });
       // Re-fetch or update state
       // For simplicity, let's just alert for now, in a real app you'd re-fetch or update state more robustly
@@ -306,8 +300,7 @@ export default function AdminSettingsClient({
       setNewCustomInterval(undefined);
       setNewStartDate("");
       setNewBillingPeriodLengthDays(undefined);
-      // setNewBillingPeriodEndOffsetDays(undefined); // Removed
-      setNewPaymentOffsetDays(undefined);
+      setNewSubmissionOffsetDays(undefined);
     } catch (error: any) {
       alert(`Error saving deadline setting: ${error.message}`);
         }
@@ -437,7 +430,7 @@ export default function AdminSettingsClient({
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div className="flex flex-col">
-            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">First Invoice Date</label>
+            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">First Payment Date</label>
             <input
               type="date"
               className="border p-2 rounded outline-none focus:ring-2 focus:ring-nreuv-accent"
@@ -461,7 +454,7 @@ export default function AdminSettingsClient({
 
           {newRecurrence === "CUSTOM" && (
             <div className="flex flex-col">
-              <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Custom Frequency (Days)</label>
+              <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Custom Interval (Days)</label>
               <input
                 type="number"
                 min="1"
@@ -485,14 +478,14 @@ export default function AdminSettingsClient({
           </div>
 
           <div className="flex flex-col">
-            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Submission Deadline X Days After Payment</label>
+            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Submission Deadline X Days Before Payment</label>
             <input
               type="number"
               min="0"
               placeholder="e.g., 7"
               className="border p-2 rounded outline-none focus:ring-2 focus:ring-nreuv-accent"
-              value={newPaymentOffsetDays || ""}
-              onChange={(e) => setNewPaymentOffsetDays(parseInt(e.target.value) || undefined)}
+              value={newSubmissionOffsetDays || ""}
+              onChange={(e) => setNewSubmissionOffsetDays(parseInt(e.target.value) || undefined)}
             />
           </div>
         </div>

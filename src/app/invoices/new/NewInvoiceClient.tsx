@@ -217,7 +217,7 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
                       disabled={isPastDate} 
                       className={isPastDate ? "text-gray-400" : ""}
                     >
-                      {new Date(period.invoiceDate).toLocaleDateString()} (Covers: {period.label})
+                      {period.label}
                     </option>
                   );
                 })}
@@ -230,6 +230,14 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
                 onChange={(e) => setInvoiceDate(e.target.value)}
                 className="border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-nreuv-accent outline-none"
               />
+            )}
+            {selectedPayPeriod && (
+              <div className="mt-2 text-sm text-slate-500">
+                Submission Deadline:{" "}
+                <span className="font-medium">
+                  {new Date(selectedPayPeriod.submissionDeadline).toLocaleDateString()}
+                </span>
+              </div>
             )}
           </div>
           <div className="flex flex-col md:col-span-2">

@@ -4,15 +4,16 @@ export interface GlobalSchedule {
   startDate: Date | null;
   recurrence: "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "CUSTOM";
   customIntervalDays: number | null;
-  billingPeriodLengthDays: number | null;
-  billingPeriodEndOffsetDays: number | null;
+  billingPeriodLengthDays: number | null; // This is now Coverage Period Length
+  submissionOffsetDays: number | null; // Days before Payment Date that invoice must be submitted
 }
 
 export interface PayPeriod {
-  invoiceDate: Date;
+  invoiceDate: Date; // This is now the Payment Date
   periodStart: Date;
   periodEnd: Date;
-  label: string;
+  submissionDeadline: Date; // Pre-calculated submission deadline for this period
+  label: string; // The label will show Payment Date (Coverage Start - Coverage End)
 }
 
 export function generatePayPeriods(schedule: GlobalSchedule, count: number = 10): PayPeriod[] {
@@ -24,16 +25,20 @@ export function generatePayPeriods(schedule: GlobalSchedule, count: number = 10)
   let currentPaymentDate = new Date(schedule.startDate); // startDate is now the first Payment Date
 
   const coverageLengthDays = schedule.billingPeriodLengthDays || 14; // This is the length of the coverage period
+  const submissionOffsetDays = schedule.submissionOffsetDays ?? 7; // Days before Payment Date for Submission Deadline
 
   for (let i = 0; i < count; i++) {
-    const periodEnd = currentPaymentDate; // Coverage ends on Payment Date
-    const periodStart = addDays(currentPaymentDate, -(coverageLengthDays - 1)); // Coverage starts 'coverageLengthDays - 1' days before Payment Date
+    // Calculate Submission Deadline (which is also the Coverage End Date)
+    const submissionDeadline = addDays(currentPaymentDate, -submissionOffsetDays);
+    const coverageEndDate = submissionDeadline;
+    const coverageStartDate = addDays(coverageEndDate, -(coverageLengthDays - 1));
 
     periods.push({
       invoiceDate: currentPaymentDate, // User picks this date, it is the Payment Date
-      periodStart: periodStart,
-      periodEnd: periodEnd,
-      label: `${periodStart.toLocaleDateString()} - ${periodEnd.toLocaleDateString()}`,
+      periodStart: coverageStartDate,
+      periodEnd: coverageEndDate,
+      submissionDeadline: submissionDeadline,
+      label: `${currentPaymentDate.toLocaleDateString()} (Covers: ${coverageStartDate.toLocaleDateString()} - ${coverageEndDate.toLocaleDateString()})`,
     });
 
     // Advance to the next Payment Date based on recurrence

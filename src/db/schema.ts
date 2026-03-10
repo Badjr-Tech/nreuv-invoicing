@@ -50,9 +50,9 @@ export const invoiceDeadlineSettings = pgTable("invoice_deadline_settings", {
   recurrence: invoiceRecurrenceEnum("recurrence").notNull(),
   customIntervalDays: integer("custom_interval_days"),
   startDate: timestamp("start_date", { mode: "date" }), // New field for start date of the schedule
-  billingPeriodLengthDays: integer("billing_period_length_days"),
-  billingPeriodEndOffsetDays: integer("billing_period_end_offset_days"), // Days before the End of Billing Period that the invoice must be submitted
-  paymentOffsetDays: integer("payment_offset_days"), // Days after the End of Billing Period that payment is made
+  billingPeriodLengthDays: integer("billing_period_length_days"), // This is now Coverage Period Length
+  // billingPeriodEndOffsetDays: integer("billing_period_end_offset_days"), // Removed
+  submissionOffsetDays: integer("submission_offset_days"), // Days before Payment Date that invoice must be submitted
 });
 
 export const categories = pgTable("category", {
