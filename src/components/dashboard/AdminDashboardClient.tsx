@@ -121,14 +121,14 @@ export default function AdminDashboardClient({ initialInvoices, users }: { initi
                 type="date"
                 className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
                 value={filterDueDateStart}
-                onChange={(e) => setFilterDueDateStart(e.target.value)}
+                onChange={(e) => handleFilterChange("filterDueDateStart", e.target.value)}
               />
               <span className="text-slate-400 self-center">-</span>
               <input
                 type="date"
                 className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
                 value={filterDueDateEnd}
-                onChange={(e) => setFilterDueDateEnd(e.target.value)}
+                onChange={(e) => handleFilterChange("filterDueDateEnd", e.target.value)}
               />
             </div>
           </div>
