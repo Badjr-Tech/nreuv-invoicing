@@ -360,6 +360,7 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
       totalHours: totalHours,
       totalCost: totalCost,
     })
+    .returning();
 
   if (!newInvoice) {
     throw new Error("Failed to create invoice.");
@@ -548,7 +549,7 @@ export async function updateInvoiceStatus(invoiceId: string, newStatus: "PENDING
   // Define allowed status transitions
   const allowedTransitions: Record<string, string[]> = {
     DRAFT: ["PENDING_MANAGER", "PENDING_ADMIN"], // PENDING_ADMIN if no manager
-    PENDING_MANAGER: ["PENDING_ADMIN"],
+    PENDING_MANAGER: ["PENDING_ADMIN", "APPROVED"],
     PENDING_ADMIN: ["APPROVED"],
     APPROVED: [], // Once approved, it's permanently locked
     SENT: ["PENDING_ADMIN", "APPROVED"], // For backward compatibility with older "SENT" status
@@ -599,14 +600,14 @@ export async function generateInvoicePdf(invoiceId: string) {
 
   const pdfBuffer = await renderToBuffer(InvoicePdfDocument({ invoice: invoiceRecord as any })); 
 
-  return pdfBuffer;
+  return pdfBuffer.toString('base64');
 }
 
 export async function generateInvoicesCsv(searchParams?: {
   sortField?: string;
   sortOrder?: "asc" | "desc";
   filterUser?: string;
-  filterStatus?: "DRAFT" | "SENT" | "APPROVED" | "";
+  filterStatus?: "DRAFT" | "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED" | "";
   filterInvoiceDateStart?: string;
   filterInvoiceDateEnd?: string;
   filterDueDateStart?: string;

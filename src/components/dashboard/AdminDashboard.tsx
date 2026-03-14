@@ -7,7 +7,7 @@ async function getAllInvoices(
   sortField: string = "invoiceDate",
   sortOrder: "asc" | "desc" = "desc",
   filterUser: string | undefined = "",
-  filterStatus: "DRAFT" | "SENT" | "APPROVED" | "" | undefined = "",
+  filterStatus: "DRAFT" | "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED" | "" | undefined = "",
   filterInvoiceDateStart: string | undefined = "",
   filterInvoiceDateEnd: string | undefined = "",
   filterDueDateStart: string | undefined = "",
@@ -70,7 +70,7 @@ export default async function AdminDashboard({
     sortField?: string;
     sortOrder?: "asc" | "desc";
     filterUser?: string;
-    filterStatus?: "DRAFT" | "SENT" | "APPROVED" | "";
+    filterStatus?: "DRAFT" | "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED" | "";
     filterInvoiceDateStart?: string;
     filterInvoiceDateEnd?: string;
     filterDueDateStart?: string;

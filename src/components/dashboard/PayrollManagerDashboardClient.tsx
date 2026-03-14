@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import DownloadPdfButton from "./DownloadPdfButton";
 import EmployeeSidebar from "./EmployeeSidebar"; // Assuming EmployeeSidebar is reusable
 
-type InvoiceStatus = "DRAFT" | "SENT" | "APPROVED";
+type InvoiceStatus = "DRAFT" | "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED" | "SENT";
 
 export default function PayrollManagerDashboardClient({ initialInvoices, users }: { initialInvoices: any[], users: any[] }) {
   const router = useRouter();

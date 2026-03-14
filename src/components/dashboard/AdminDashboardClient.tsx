@@ -8,7 +8,7 @@ import DownloadPdfButton from "./DownloadPdfButton";
 import DownloadCsvButton from "./DownloadCsvButton";
 import EmployeeSidebar from "./EmployeeSidebar"; // Added import for EmployeeSidebar
 
-type InvoiceStatus = "DRAFT" | "SENT" | "APPROVED";
+type InvoiceStatus = "DRAFT" | "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED" | "SENT";
 
 export default function AdminDashboardClient({ initialInvoices, users }: { initialInvoices: any[], users: any[] }) {
   const router = useRouter();

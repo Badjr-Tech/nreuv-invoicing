@@ -26,9 +26,9 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
     try {
       await updateInvoiceStatus(invoice.id, newStatus);
       router.refresh();
+      // Only set to false on error, let the page refresh handle the successful state
     } catch (err: any) {
       setError(err.message || `Failed to update status to ${newStatus}.`);
-    } finally {
       setIsUpdating(false);
     }
   };
@@ -156,7 +156,7 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
         )}
 
         {/* Admin can approve PENDING_ADMIN invoices */}
-        {currentUserRole === "ADMIN" && invoice.status === "PENDING_ADMIN" && (
+        {currentUserRole === "ADMIN" && (invoice.status === "PENDING_ADMIN" || invoice.status === "PENDING_MANAGER") && (
           <button
             onClick={() => handleStatusChange("APPROVED")}
             disabled={isUpdating}

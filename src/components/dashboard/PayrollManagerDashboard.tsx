@@ -9,7 +9,7 @@ async function getAllInvoices(
   sortField: string = "invoiceDate",
   sortOrder: "asc" | "desc" = "desc",
   filterUser: string = "",
-  filterStatus: "DRAFT" | "SENT" | "APPROVED" | "" = "",
+  filterStatus: "DRAFT" | "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED" | "" = "",
   filterInvoiceDateStart: string = "",
   filterInvoiceDateEnd: string = "",
   filterDueDateStart: string = "",
@@ -63,7 +63,7 @@ export default async function PayrollManagerDashboard({
     sortField?: string;
     sortOrder?: "asc" | "desc";
     filterUser?: string;
-    filterStatus?: "DRAFT" | "SENT" | "APPROVED" | "";
+    filterStatus?: "DRAFT" | "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED" | "";
     filterInvoiceDateStart?: string;
     filterInvoiceDateEnd?: string;
     filterDueDateStart?: string;
