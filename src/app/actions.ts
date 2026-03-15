@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import InvoicePdfDocument from "@/lib/pdf-generator";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { addDays, format } from "date-fns";
+import { sendWelcomeEmail } from "@/lib/email";
 
 // New interfaces for deadline and payment schedule settings
 interface CreateOrUpdateInvoiceDeadlineSettingData {
@@ -239,6 +240,9 @@ export async function approveAccountRequest(requestId: string) {
     role: "USER", // Default role for approved accounts
     emailVerified: new Date(), // Mark as verified since admin approved
   });
+
+  // Send the welcome email
+  await sendWelcomeEmail(request.email, request.name);
 
   // 2. Update the account request status
   await db
@@ -817,6 +821,9 @@ export async function addUserManually(data: any) {
     role: data.role || "EMPLOYEE",
     emailVerified: new Date(), // Auto-verify manually added users
   } as InsertUser).returning();
+
+  // Send the welcome email
+  await sendWelcomeEmail(data.email, data.name);
 
   revalidatePath("/admin/users");
   return newUser;
