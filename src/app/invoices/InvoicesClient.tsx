@@ -106,6 +106,7 @@ export default function InvoicesClient({ userInvoices, allUsers, currentUserRole
                     <th className="py-3 px-4 font-semibold text-sm">Employee</th>
                   )}
                   <th className="py-3 px-4 font-semibold text-sm">Payment Date</th>
+                  <th className="py-3 px-4 font-semibold text-sm">Total Hours</th>
                   <th className="py-3 px-4 font-semibold text-sm">Status</th>
                   <th className="py-3 px-4 font-semibold text-sm text-right">Total</th>
                   <th className="py-3 px-4 font-semibold text-sm text-right">Actions</th>
@@ -124,6 +125,9 @@ export default function InvoicesClient({ userInvoices, allUsers, currentUserRole
                     )}
                     <td className="py-3 px-4 text-sm text-slate-600">
                       {format(new Date(invoice.invoiceDate), "MMM dd, yyyy")}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-slate-900">
+                      {invoice.totalHours}
                     </td>
                     <td className="py-3 px-4 text-sm">
                       <span
