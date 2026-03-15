@@ -2,9 +2,9 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 
 const publicRoutes = ["/auth/signin", "/auth/request-account"]; // Added /auth/request-account
-const userRoutes = ["/my-invoices", "/invoices/new", "/invoices/", "/settings"];
-const payrollManagerRoutes = ["/invoices"];
-const adminRoutes = ["/admin/users", "/admin/settings"];
+const userRoutes = ["/my-invoices", "/invoices", "/settings", "/notifications"];
+const payrollManagerRoutes = ["/invoices", "/notifications"];
+const adminRoutes = ["/admin/users", "/admin/settings", "/notifications"];
 
 export default auth((req: any) => {
   const { nextUrl } = req;
@@ -52,8 +52,11 @@ export default auth((req: any) => {
     }
   }
 
-  // Default redirect for any other case (e.g., authenticated user without a recognized role, or route not covered)
-  return NextResponse.redirect(new URL("/", nextUrl));
+  // Default redirect for any other case
+  if (nextUrl.pathname !== "/") {
+    return NextResponse.redirect(new URL("/", nextUrl));
+  }
+  return NextResponse.next();
 });
 
 export const config = {
