@@ -66,7 +66,7 @@ export default function AdminDashboardClient({ initialInvoices, users }: { initi
             <h2 className="text-xl font-bold text-nreuv-black">Filters & Export</h2>
             <DownloadCsvButton />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
             <div className="flex flex-col w-full">
               <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Contractor</label>
               <select 
@@ -96,37 +96,53 @@ export default function AdminDashboardClient({ initialInvoices, users }: { initi
               </select>
             </div>
 
-                      <div className="flex flex-col">
-                        <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Payment Date Range</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="date"
-                            className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
-                            value={filterPaymentDateStart}
-                            onChange={(e) => handleFilterChange("filterPaymentDateStart", e.target.value)}
-                          />
-                          <span className="text-slate-400 self-center">-</span>
-                          <input
-                            type="date"
-                            className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
-                            value={filterPaymentDateEnd}
-                            onChange={(e) => handleFilterChange("filterPaymentDateEnd", e.target.value)}
-                          />
-                        </div>
-                      </div>          
-          <div className="flex flex-col">
+                                          <div className="flex flex-col">
+
+                                            <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Payment Date Range</label>
+
+                                            <div className="flex flex-col 2xl:flex-row gap-2 items-stretch 2xl:items-center w-full">
+
+                                              <input
+
+                                                type="date"
+
+                                                className="border p-2 rounded text-sm flex-1 w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
+
+                                                value={filterPaymentDateStart}
+
+                                                onChange={(e) => handleFilterChange("filterPaymentDateStart", e.target.value)}
+
+                                              />
+
+                                              <span className="text-slate-400 hidden 2xl:block self-center">-</span>
+
+                                              <input
+
+                                                type="date"
+
+                                                className="border p-2 rounded text-sm flex-1 w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
+
+                                                value={filterPaymentDateEnd}
+
+                                                onChange={(e) => handleFilterChange("filterPaymentDateEnd", e.target.value)}
+
+                                              />
+
+                                            </div>
+
+                                          </div>          <div className="flex flex-col">
             <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Submission Deadline Range</label>
-            <div className="flex gap-2">
+            <div className="flex flex-col 2xl:flex-row gap-2 items-stretch 2xl:items-center w-full">
               <input
                 type="date"
-                className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
+                className="border p-2 rounded text-sm flex-1 w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
                 value={filterDueDateStart}
                 onChange={(e) => handleFilterChange("filterDueDateStart", e.target.value)}
               />
-              <span className="text-slate-400 self-center">-</span>
+              <span className="text-slate-400 hidden 2xl:block self-center">-</span>
               <input
                 type="date"
-                className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
+                className="border p-2 rounded text-sm flex-1 w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
                 value={filterDueDateEnd}
                 onChange={(e) => handleFilterChange("filterDueDateEnd", e.target.value)}
               />
