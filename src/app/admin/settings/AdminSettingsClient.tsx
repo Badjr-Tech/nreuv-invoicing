@@ -414,10 +414,10 @@ export default function AdminSettingsClient({
             <div key={setting.id} className="mb-2 p-4 border rounded bg-slate-50">
               <div className="font-semibold text-lg mb-2">Current Schedule: {setting.recurrence}</div>
               <ul className="text-sm text-slate-700 space-y-1">
-                <li><span className="font-medium">First Invoice Date:</span> {setting.startDate ? new Date(setting.startDate).toLocaleDateString() : 'Not Set'}</li>
+                <li><span className="font-medium">First Payment Date:</span> {setting.startDate ? new Date(setting.startDate).toLocaleDateString() : 'Not Set'}</li>
                 {setting.recurrence === "CUSTOM" && <li><span className="font-medium">Every:</span> {setting.customIntervalDays} days</li>}
-                <li><span className="font-medium">Billing Period Length:</span> {setting.billingPeriodLengthDays || 0} days</li>
-                <li><span className="font-medium">Billing Period Ends:</span> {setting.billingPeriodEndOffsetDays || 0} days before the invoice date</li>
+                <li><span className="font-medium">Coverage Period Length:</span> {setting.billingPeriodLengthDays || 0} days</li>
+                <li><span className="font-medium">Submission Deadline X Days Before Payment:</span> {setting.submissionOffsetDays || 0} days</li>
               </ul>
             </div>
           ))}

@@ -231,7 +231,7 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
                 className="border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-nreuv-accent outline-none"
               />
             )}
-            {selectedPayPeriod && (
+            {selectedPayPeriod && selectedPayPeriod.submissionDeadline && (
               <div className="mt-2 text-sm text-slate-500">
                 Submission Deadline:{" "}
                 <span className="font-medium">

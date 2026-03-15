@@ -5,22 +5,17 @@ import { generateInvoicePdf } from "@/app/actions";
 export default function DownloadPdfButton({ invoiceId }: { invoiceId: string }) {
   const handleDownloadPdf = async () => {
     try {
-      const pdfBuffer = await generateInvoicePdf(invoiceId);
+      const pdfBase64 = await generateInvoicePdf(invoiceId);
       
-      // Ensure pdfBuffer is an array of numbers or Uint8Array
-      let dataArray: Uint8Array;
-      if (pdfBuffer instanceof Uint8Array) {
-        dataArray = pdfBuffer;
-      } else if (Array.isArray(pdfBuffer)) {
-        dataArray = new Uint8Array(pdfBuffer);
-      } else if (pdfBuffer && typeof pdfBuffer === 'object' && 'data' in pdfBuffer && Array.isArray(pdfBuffer.data)) {
-        // Common serialization of Node.js Buffer is { type: 'Buffer', data: [...] }
-        dataArray = new Uint8Array(pdfBuffer.data);
-      } else {
-        throw new Error("Unexpected PDF buffer format.");
+      // Decode Base64 string to a Uint8Array
+      const binaryString = atob(pdfBase64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
       }
 
-      const blob = new Blob([dataArray], { type: "application/pdf" });
+      const blob = new Blob([bytes], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

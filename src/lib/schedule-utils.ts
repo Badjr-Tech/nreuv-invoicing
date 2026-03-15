@@ -38,7 +38,7 @@ export function generatePayPeriods(schedule: GlobalSchedule, count: number = 10)
       periodStart: coverageStartDate,
       periodEnd: coverageEndDate,
       submissionDeadline: submissionDeadline,
-      label: `${currentPaymentDate.toLocaleDateString()} (Covers: ${coverageStartDate.toLocaleDateString()} - ${coverageEndDate.toLocaleDateString()})`,
+      label: `Payment: ${currentPaymentDate.toLocaleDateString()} (Coverage: ${coverageStartDate.toLocaleDateString()} - ${coverageEndDate.toLocaleDateString()})`,
     });
 
     // Advance to the next Payment Date based on recurrence
