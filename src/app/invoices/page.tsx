@@ -41,10 +41,14 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
   }
 
   if (filterPaymentDateStart) {
-    whereClause.push(gte(invoices.invoiceDate, new Date(filterPaymentDateStart)));
+    // Append T00:00:00 to ensure it's treated as local time midnight
+    const startDate = new Date(`${filterPaymentDateStart}T00:00:00`);
+    whereClause.push(gte(invoices.invoiceDate, startDate));
   }
   if (filterPaymentDateEnd) {
-    whereClause.push(lte(invoices.invoiceDate, new Date(filterPaymentDateEnd)));
+    // Append T23:59:59 to capture the whole day
+    const endDate = new Date(`${filterPaymentDateEnd}T23:59:59`);
+    whereClause.push(lte(invoices.invoiceDate, endDate));
   }
 
   const userInvoices = await db.query.invoices.findMany({
