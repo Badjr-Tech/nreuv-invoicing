@@ -101,7 +101,6 @@ export default function InvoicesClient({ userInvoices, allUsers, currentUserRole
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                  <th className="py-3 px-4 font-semibold text-sm">Invoice ID / Number</th>
                   {(currentUserRole === "ADMIN" || currentUserRole === "PAYROLL_MANAGER") && (
                     <th className="py-3 px-4 font-semibold text-sm">Employee</th>
                   )}
@@ -115,9 +114,6 @@ export default function InvoicesClient({ userInvoices, allUsers, currentUserRole
               <tbody>
                 {userInvoices.map((invoice) => (
                   <tr key={invoice.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                    <td className="py-3 px-4 text-sm text-slate-900 font-medium">
-                      {invoice.invoiceNumber ? `#${invoice.invoiceNumber.toString().padStart(2, '0')}` : invoice.id.split('-')[0]}
-                    </td>
                     {(currentUserRole === "ADMIN" || currentUserRole === "PAYROLL_MANAGER") && (
                       <td className="py-3 px-4 text-sm text-slate-900">
                         {invoice.user?.name || invoice.user?.email || 'Unknown'}
