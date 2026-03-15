@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { auth, signOut } from "@/auth";
 import { db } from "@/db"; // Import db
 import { notifications, invoices } from "@/db/schema"; // Import notifications and invoices schema
@@ -43,8 +42,9 @@ export default async function Sidebar() {
   return (
     <aside className="w-64 bg-nreuv-primary text-white p-4 space-y-4 shadow-lg flex flex-col h-screen overflow-hidden">
       <div className="mb-6 flex-shrink-0">
-        <Link href="/">
-          <Image src="/companylogo1.png" alt="Company Logo" width={150} height={40} priority />
+        <Link href="/" className="block bg-white p-2 rounded">
+          {/* Using a standard img tag to prevent Next.js Image optimization issues with certain source formats */}
+          <img src="/companylogo1.png" alt="Company Logo" className="h-10 w-auto object-contain mx-auto" />
         </Link>
       </div>
       <nav className="flex-1 overflow-y-auto pr-2 pb-4">
