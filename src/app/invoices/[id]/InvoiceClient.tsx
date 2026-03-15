@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateInvoiceStatus } from '@/app/actions';
+import { updateInvoiceStatus, deferInvoice } from '@/app/actions';
 import Link from 'next/link';
 import DownloadPdfButton from '@/components/dashboard/DownloadPdfButton';
 
@@ -29,6 +29,19 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
       // Only set to false on error, let the page refresh handle the successful state
     } catch (err: any) {
       setError(err.message || `Failed to update status to ${newStatus}.`);
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDefer = async () => {
+    if (!confirm("Are you sure you want to defer this invoice to the next pay cycle? This will push its payment and submission dates forward and return its status to Draft.")) return;
+    setIsUpdating(true);
+    setError(null);
+    try {
+      await deferInvoice(invoice.id);
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message || "Failed to defer invoice.");
       setIsUpdating(false);
     }
   };
@@ -157,13 +170,22 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
 
         {/* Admin can approve PENDING_ADMIN invoices */}
         {currentUserRole === "ADMIN" && (invoice.status === "PENDING_ADMIN" || invoice.status === "PENDING_MANAGER") && (
-          <button
-            onClick={() => handleStatusChange("APPROVED")}
-            disabled={isUpdating}
-            className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-          >
-            {isUpdating ? "Approving..." : "Approve Invoice"}
-          </button>
+          <>
+            <button
+              onClick={handleDefer}
+              disabled={isUpdating}
+              className="px-6 py-2.5 bg-yellow-500 hover:bg-yellow-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isUpdating ? "Processing..." : "Defer Invoice"}
+            </button>
+            <button
+              onClick={() => handleStatusChange("APPROVED")}
+              disabled={isUpdating}
+              className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isUpdating ? "Approving..." : "Approve Invoice"}
+            </button>
+          </>
         )}
       </div>
     </div>

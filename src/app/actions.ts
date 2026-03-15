@@ -10,6 +10,7 @@ import InvoicePdfDocument from "@/lib/pdf-generator";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { addDays, format } from "date-fns";
 import { sendWelcomeEmail } from "@/lib/email";
+import { generatePayPeriods } from "@/lib/schedule-utils";
 
 // New interfaces for deadline and payment schedule settings
 interface CreateOrUpdateInvoiceDeadlineSettingData {
@@ -576,6 +577,51 @@ export async function updateInvoiceStatus(invoiceId: string, newStatus: "PENDING
   await db.update(invoices).set(updateData).where(eq(invoices.id, invoiceId));
 
   revalidatePath("/"); // Revalidate the home page to reflect changes
+}
+
+export async function deferInvoice(invoiceId: string) {
+  const session = await auth();
+
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can defer invoices.");
+  }
+
+  const invoiceRecord = await db.query.invoices.findFirst({
+    where: eq(invoices.id, invoiceId),
+  });
+
+  if (!invoiceRecord) {
+    throw new Error("Invoice not found.");
+  }
+
+  const schedule = await db.query.invoiceDeadlineSettings.findFirst({
+    where: (settings, { isNotNull }) => isNotNull(settings.startDate),
+    orderBy: (settings, { desc }) => [desc(settings.startDate)],
+  });
+
+  if (!schedule || !schedule.startDate) {
+    throw new Error("No active payroll schedule found to calculate next pay cycle.");
+  }
+
+  // Generate enough pay periods to find the next one
+  const periods = generatePayPeriods(schedule as any, 100); 
+  const currentInvoiceDate = new Date(invoiceRecord.invoiceDate).getTime();
+  
+  // Find the first period whose payment date is strictly after the current invoice's payment date
+  const nextPeriod = periods.find(p => new Date(p.invoiceDate).getTime() > currentInvoiceDate);
+
+  if (!nextPeriod) {
+    throw new Error("Could not determine the next pay cycle.");
+  }
+
+  await db.update(invoices).set({
+    invoiceDate: nextPeriod.invoiceDate,
+    dueDate: nextPeriod.submissionDeadline,
+    status: "DRAFT", // Moving it back to DRAFT so the user knows it needs attention, or could leave it PENDING. Let's keep it DRAFT so they can adjust hours if needed.
+  }).where(eq(invoices.id, invoiceId));
+
+  revalidatePath("/");
+  revalidatePath(`/invoices/${invoiceId}`);
 }
 
 export async function generateInvoicePdf(invoiceId: string) {
