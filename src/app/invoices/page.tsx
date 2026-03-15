@@ -1,33 +1,63 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { invoices } from "@/db/schema";
-import { desc } from "drizzle-orm";
+import { invoices, users } from "@/db/schema"; // Import users for filtering by user name
+import { desc, eq, and, gte, lte } from "drizzle-orm"; // Import necessary Drizzle-orm functions
 import { format } from "date-fns";
 import Link from "next/link";
 import DownloadPdfButton from "@/components/dashboard/DownloadPdfButton";
 import { redirect } from "next/navigation";
 
-export default async function InvoicesPage() {
+interface InvoicesPageProps {
+  searchParams?: {
+    filterUser?: string;
+    filterStatus?: "DRAFT" | "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED" | "";
+    filterPaymentDateStart?: string;
+    filterPaymentDateEnd?: string;
+  };
+}
+
+export default async function InvoicesPage({ searchParams }: InvoicesPageProps) {
   const session = await auth();
 
   if (!session?.user) {
     redirect("/auth/signin");
   }
 
-  // Admin and Managers see all, users see only theirs
-  let userInvoices;
-  if (session.user.role === "ADMIN" || session.user.role === "PAYROLL_MANAGER") {
-      userInvoices = await db.query.invoices.findMany({
-        with: { items: true, user: true },
-        orderBy: [desc(invoices.invoiceDate)],
-      });
-  } else {
-      userInvoices = await db.query.invoices.findMany({
-        where: (invoices, { eq }) => eq(invoices.userId, session.user.id),
-        with: { items: true, user: true },
-        orderBy: [desc(invoices.invoiceDate)],
-      });
+  const { filterUser, filterStatus, filterPaymentDateStart, filterPaymentDateEnd } =
+    searchParams || {};
+
+  let whereClause = [];
+
+  // Always filter by userId for non-admin/payroll_manager roles
+  if (session.user.role === "USER" || session.user.role === "EMPLOYEE") {
+    whereClause.push(eq(invoices.userId, session.user.id));
+  } else if (filterUser) { // For Admin/PayrollManager, apply filterUser if present
+    whereClause.push(eq(invoices.userId, filterUser));
   }
+
+  if (filterStatus) {
+    whereClause.push(eq(invoices.status, filterStatus));
+  }
+
+  if (filterPaymentDateStart) {
+    whereClause.push(gte(invoices.invoiceDate, new Date(filterPaymentDateStart)));
+  }
+  if (filterPaymentDateEnd) {
+    whereClause.push(lte(invoices.invoiceDate, new Date(filterPaymentDateEnd)));
+  }
+
+  const userInvoices = await db.query.invoices.findMany({
+    where: and(...whereClause),
+    with: { items: true, user: true },
+    orderBy: [desc(invoices.invoiceDate)],
+  });
+
+
+
+  const allUsers =
+    session.user.role === "ADMIN" || session.user.role === "PAYROLL_MANAGER"
+      ? await db.query.users.findMany()
+      : [];
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
@@ -42,6 +72,78 @@ export default async function InvoicesPage() {
           </Link>
         )}
       </div>
+
+      {(session.user.role === "ADMIN" || session.user.role === "PAYROLL_MANAGER") && (
+        <div className="mb-6 p-5 bg-white rounded-xl shadow-sm border border-slate-100">
+          <h2 className="text-xl font-bold text-nreuv-black mb-4">Filters</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex flex-col">
+              <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Contractor</label>
+              <select
+                className="border border-slate-300 p-2.5 rounded-lg focus:ring-2 focus:ring-nreuv-accent focus:border-transparent outline-none bg-white w-full"
+                value={filterUser || ""}
+                onChange={(e) => {
+                  const params = new URLSearchParams(window.location.search);
+                  if (e.target.value) {
+                    params.set("filterUser", e.target.value);
+                  } else {
+                    params.delete("filterUser");
+                  }
+                  window.history.pushState(null, "", `?${params.toString()}`);
+                }}
+              >
+                <option value="">All Contractors</option>
+                {allUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name || user.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col">
+              <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Status</label>
+              <select
+                className="border border-slate-300 p-2.5 rounded-lg focus:ring-2 focus:ring-nreuv-accent focus:border-transparent outline-none bg-white w-full"
+                value={filterStatus || ""}
+                onChange={(e) => {
+                  const params = new URLSearchParams(window.location.search);
+                  if (e.target.value) {
+                    params.set("filterStatus", e.target.value);
+                  } else {
+                    params.delete("filterStatus");
+                  }
+                  window.history.pushState(null, "", `?${params.toString()}`);
+                }}
+              >
+                <option value="">All Statuses</option>
+                <option value="DRAFT">Draft</option>
+                <option value="PENDING_MANAGER">Pending Manager</option>
+                <option value="PENDING_ADMIN">Pending Admin</option>
+                <option value="APPROVED">Approved</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col">
+              <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Payment Date</label>
+              <input
+                type="date"
+                className="border border-slate-300 p-2.5 rounded-lg focus:ring-2 focus:ring-nreuv-accent focus:border-transparent outline-none bg-white w-full"
+                value={filterPaymentDateStart || ""}
+                onChange={(e) => {
+                  const params = new URLSearchParams(window.location.search);
+                  if (e.target.value) {
+                    params.set("filterPaymentDateStart", e.target.value);
+                  } else {
+                    params.delete("filterPaymentDateStart");
+                  }
+                  window.history.pushState(null, "", `?${params.toString()}`);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {userInvoices.length === 0 ? (
         <div className="bg-white rounded-lg p-8 text-center border border-slate-200">

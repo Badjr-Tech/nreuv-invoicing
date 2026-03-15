@@ -126,7 +126,7 @@ export default async function Sidebar() {
                   return (
                     <li key={index}>
                       <Link
-                        href={`/?filterPaymentDateStart=${dateStr}&filterPaymentDateEnd=${dateStr}&filterStatus=APPROVED`}
+                        href={`/invoices?filterPaymentDateStart=${dateStr}&filterPaymentDateEnd=${dateStr}&filterStatus=APPROVED`}
                         className="block py-1.5 px-4 text-sm rounded transition duration-200 hover:bg-black/20 text-gray-200 hover:text-white"
                       >
                         {format(new Date(d.invoiceDate), "MMM dd, yyyy")}
