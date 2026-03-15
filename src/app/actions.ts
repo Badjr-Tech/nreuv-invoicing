@@ -3,7 +3,7 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { invoices, invoiceItems, invoiceDeadlineSettings, invoiceRecurrenceEnum, notifications, accountRequests, users, InsertUser, categories, categoryBundles, categoryBundleCategories, userCategoryBundles } from "@/db/schema";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { and, eq, desc, asc, gte, lte, inArray, notInArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import InvoicePdfDocument from "@/lib/pdf-generator";
