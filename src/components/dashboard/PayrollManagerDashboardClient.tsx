@@ -100,14 +100,14 @@ export default function PayrollManagerDashboardClient({ initialInvoices, users }
               <input
                 type="date"
                 className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
-                value={filterInvoiceDateStart}
+                value={filterPaymentDateStart}
                 onChange={(e) => handleFilterChange("filterPaymentDateStart", e.target.value)}
               />
               <span className="text-slate-400 self-center">-</span>
               <input
                 type="date"
                 className="border p-2 rounded text-sm w-full outline-none focus:ring-2 focus:ring-nreuv-accent"
-                value={filterInvoiceDateEnd}
+                value={filterPaymentDateEnd}
                 onChange={(e) => handleFilterChange("filterPaymentDateEnd", e.target.value)}
               />
             </div>
