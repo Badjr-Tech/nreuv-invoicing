@@ -211,4 +211,11 @@ export const userCategoryBundlesRelations = relations(userCategoryBundles, ({ on
   }),
 }));
 
+export const passwordResetTokensRelations = relations(passwordResetTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [passwordResetTokens.userId],
+    references: [users.id],
+  }),
+}));
+
 
