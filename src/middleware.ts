@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 
-const publicRoutes = ["/auth/signin", "/auth/request-account"]; // Added /auth/request-account
+const publicRoutes = ["/auth/signin", "/auth/request-account", "/auth/set-password"]; // Added /auth/request-account
 const userRoutes = ["/my-invoices", "/invoices", "/settings", "/notifications"];
 const payrollManagerRoutes = ["/invoices", "/notifications"];
 const adminRoutes = ["/admin/users", "/admin/settings", "/notifications", "/admin/analytics"];
