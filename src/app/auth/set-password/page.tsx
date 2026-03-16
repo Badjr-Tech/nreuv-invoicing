@@ -12,6 +12,7 @@ export default async function SetPasswordPage({
   const { token } = await searchParams;
 
   if (!token) {
+    console.log('SetPasswordPage: No token provided in URL. Redirecting to signin.');
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
         <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-sm border border-slate-100 text-center">
@@ -31,6 +32,7 @@ export default async function SetPasswordPage({
   });
 
   if (!resetToken || new Date() > new Date(resetToken.expiresAt)) {
+    console.log('SetPasswordPage: Token invalid or expired. Redirecting to signin.');
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
         <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-sm border border-slate-100 text-center">

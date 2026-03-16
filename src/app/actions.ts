@@ -254,6 +254,7 @@ export async function approveAccountRequest(requestId: string) {
   const token = await generatePasswordResetToken(newUserRecord.id);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nreuv-invoicing.vercel.app';
   const passwordLink = `${appUrl}/auth/set-password?token=${token}`;
+  console.log('Generated Password Link for approveAccountRequest:', passwordLink);
 
   // Send the welcome email
   await sendWelcomeEmail(request.email, request.name, passwordLink);
@@ -902,6 +903,7 @@ export async function addUserManually(data: any) {
   const token = await generatePasswordResetToken(newUser.id);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nreuv-invoicing.vercel.app';
   const passwordLink = `${appUrl}/auth/set-password?token=${token}`;
+  console.log('Generated Password Link for addUserManually:', passwordLink);
 
   // Send the welcome email
   await sendWelcomeEmail(data.email, data.name, passwordLink);
