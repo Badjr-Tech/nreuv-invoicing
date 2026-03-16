@@ -70,11 +70,9 @@ export async function createOrUpdateInvoiceDeadlineSetting(data: CreateOrUpdateI
   revalidatePath("/"); // Revalidate home page if affected
 }
 
-export async function createCategory(name: string) {
   const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can manage categories.");
-  }
+  if (!session?.user?.id || (session.user.role !== "ADMIN" && session.user.role !== "PAYROLL_MANAGER")) {
+    throw new Error("Unauthorized or Forbidden: Only Admin or Payroll Manager can manage categories.");
   if (!name.trim()) {
     throw new Error("Category name cannot be empty.");
   }
@@ -86,8 +84,8 @@ export async function createCategory(name: string) {
 
 export async function updateCategory(id: string, name: string) {
   const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can manage categories.");
+  if (!session?.user?.id || (session.user.role !== "ADMIN" && session.user.role !== "PAYROLL_MANAGER")) {
+    throw new Error("Unauthorized or Forbidden: Only Admin or Payroll Manager can manage categories.");
   }
   if (!name.trim()) {
     throw new Error("Category name cannot be empty.");
@@ -100,8 +98,8 @@ export async function updateCategory(id: string, name: string) {
 
 export async function deleteCategory(id: string) {
   const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can manage categories.");
+  if (!session?.user?.id || (session.user.role !== "ADMIN" && session.user.role !== "PAYROLL_MANAGER")) {
+    throw new Error("Unauthorized or Forbidden: Only Admin or Payroll Manager can manage categories.");
   }
   await db.delete(categories).where(eq(categories.id, id));
   revalidatePath("/admin/settings");
@@ -910,10 +908,9 @@ export async function addUserManually(data: any) {
   return newUser;
 }
 
-export async function createCategoryBundle(name: string) {
   const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can manage category bundles.");
+  if (!session?.user?.id || (session.user.role !== "ADMIN" && session.user.role !== "PAYROLL_MANAGER")) {
+    throw new Error("Unauthorized or Forbidden: Only Admin or Payroll Manager can manage category bundles.");
   }
   if (!name.trim()) {
     throw new Error("Category bundle name cannot be empty.");
@@ -922,10 +919,9 @@ export async function createCategoryBundle(name: string) {
   revalidatePath("/admin/settings");
 }
 
-export async function updateCategoryBundle(id: string, name: string) {
   const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can manage category bundles.");
+  if (!session?.user?.id || (session.user.role !== "ADMIN" && session.user.role !== "PAYROLL_MANAGER")) {
+    throw new Error("Unauthorized or Forbidden: Only Admin or Payroll Manager can manage category bundles.");
   }
   if (!name.trim()) {
     throw new Error("Category bundle name cannot be empty.");
@@ -934,10 +930,9 @@ export async function updateCategoryBundle(id: string, name: string) {
   revalidatePath("/admin/settings");
 }
 
-export async function deleteCategoryBundle(id: string) {
   const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can manage category bundles.");
+  if (!session?.user?.id || (session.user.role !== "ADMIN" && session.user.role !== "PAYROLL_MANAGER")) {
+    throw new Error("Unauthorized or Forbidden: Only Admin or Payroll Manager can manage category bundles.");
   }
   await db.delete(categoryBundles).where(eq(categoryBundles.id, id));
   revalidatePath("/admin/settings");
@@ -945,8 +940,8 @@ export async function deleteCategoryBundle(id: string) {
 
 export async function assignCategoryToBundle(bundleId: string, categoryId: string) {
   const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can manage category bundles.");
+  if (!session?.user?.id || (session.user.role !== "ADMIN" && session.user.role !== "PAYROLL_MANAGER")) {
+    throw new Error("Unauthorized or Forbidden: Only Admin or Payroll Manager can manage category bundles.");
   }
   await db.insert(categoryBundleCategories).values({ bundleId, categoryId });
   revalidatePath("/admin/settings");
@@ -954,8 +949,8 @@ export async function assignCategoryToBundle(bundleId: string, categoryId: strin
 
 export async function unassignCategoryFromBundle(bundleId: string, categoryId: string) {
   const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can manage category bundles.");
+  if (!session?.user?.id || (session.user.role !== "ADMIN" && session.user.role !== "PAYROLL_MANAGER")) {
+    throw new Error("Unauthorized or Forbidden: Only Admin or Payroll Manager can manage category bundles.");
   }
   await db.delete(categoryBundleCategories).where(
     and(
