@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { invoices } from '@/db/schema';
 import { eq, and, gt, lte } from 'drizzle-orm';
 import { sendLateInvoiceEmail } from '@/lib/email';
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay, format } from 'date-fns'; // Import format
 
 export const dynamic = 'force-dynamic';
 
@@ -34,9 +34,13 @@ export async function GET(request: Request) {
 
     console.log(`Found ${upcomingInvoices.length} invoices due today (late).`);
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nreuv-invoicing.vercel.app';
+
     for (const invoice of upcomingInvoices) {
       if (invoice.user?.email && invoice.user?.name) {
-        await sendLateInvoiceEmail(invoice.user.email, invoice.user.name);
+        const invoiceLink = `${appUrl}/invoices/${invoice.id}`;
+        const dueDateAndTime = format(new Date(invoice.dueDate), "EEEE 'at' h:mm a"); // e.g., "Tuesday at 5:00 PM"
+        await sendLateInvoiceEmail(invoice.user.email, invoice.user.name, invoiceLink, dueDateAndTime);
       }
     }
 

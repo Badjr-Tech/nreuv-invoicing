@@ -36,9 +36,9 @@ export const sendWelcomeEmail = async (to: string, name: string, passwordLink: s
   }
 };
 
-export const sendInvoiceReminderEmail = async (to: string, name: string) => {
+export const sendInvoiceReminderEmail = async (to: string, name: string, invoiceLink: string) => {
   if (!process.env.SENDGRID_API_KEY) {
-    console.log(`Simulating invoice reminder email to ${to}`);
+    console.log(`Simulating invoice reminder email to ${to} for invoice link: ${invoiceLink}`);
     return;
   }
 
@@ -48,6 +48,7 @@ export const sendInvoiceReminderEmail = async (to: string, name: string) => {
     templateId: 'd-3df719ef3cfb435ab8325dc316cdddec',
     dynamicTemplateData: {
       name: name,
+      INVOICE_LINK: invoiceLink,
     },
   };
 
@@ -63,9 +64,9 @@ export const sendInvoiceReminderEmail = async (to: string, name: string) => {
   }
 };
 
-export const sendLateInvoiceEmail = async (to: string, name: string) => {
+export const sendLateInvoiceEmail = async (to: string, name: string, invoiceLink: string, dueDateAndTime: string) => {
   if (!process.env.SENDGRID_API_KEY) {
-    console.log(`Simulating late invoice email to ${to}`);
+    console.log(`Simulating late invoice email to ${to} for invoice link: ${invoiceLink}, due: ${dueDateAndTime}`);
     return;
   }
 
@@ -75,6 +76,8 @@ export const sendLateInvoiceEmail = async (to: string, name: string) => {
     templateId: 'd-6ad80364f38c47b683fe4058da7f826a',
     dynamicTemplateData: {
       name: name,
+      INVOICE_LINK: invoiceLink,
+      DUEDATE_TIME: dueDateAndTime,
     },
   };
 
