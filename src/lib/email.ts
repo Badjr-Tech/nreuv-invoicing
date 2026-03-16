@@ -6,7 +6,7 @@ if (process.env.SENDGRID_API_KEY) {
   console.warn('SENDGRID_API_KEY is not set. Emails will not be sent.');
 }
 
-const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@nreuv.com'; // Change this to your verified sender
+const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || '"NREUV Invoicing" <noreply@nreuv.com>'; // Change this to your verified sender
 
 export const sendWelcomeEmail = async (to: string, name: string, passwordLink: string) => {
   if (!process.env.SENDGRID_API_KEY) {
