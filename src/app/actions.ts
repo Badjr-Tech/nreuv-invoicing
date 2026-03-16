@@ -11,6 +11,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { addDays, format } from "date-fns";
 import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail } from "@/lib/email";
 import { generatePayPeriods } from "@/lib/schedule-utils";
+import { generatePasswordResetToken } from "@/lib/auth-utils";
 
 // New interfaces for deadline and payment schedule settings
 interface CreateOrUpdateInvoiceDeadlineSettingData {
@@ -242,8 +243,20 @@ export async function approveAccountRequest(requestId: string) {
     emailVerified: new Date(), // Mark as verified since admin approved
   });
 
+  const newUserRecord = await db.query.users.findFirst({
+    where: eq(users.email, request.email),
+  });
+
+  if (!newUserRecord) {
+    throw new Error("Failed to retrieve new user record after creation.");
+  }
+
+  const token = await generatePasswordResetToken(newUserRecord.id);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nreuv-invoicing.vercel.app';
+  const passwordLink = `${appUrl}/auth/set-password?token=${token}`;
+
   // Send the welcome email
-  await sendWelcomeEmail(request.email, request.name);
+  await sendWelcomeEmail(request.email, request.name, passwordLink);
 
   // 2. Update the account request status
   await db
@@ -886,8 +899,12 @@ export async function addUserManually(data: any) {
     emailVerified: new Date(), // Auto-verify manually added users
   } as InsertUser).returning();
 
+  const token = await generatePasswordResetToken(newUser.id);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nreuv-invoicing.vercel.app';
+  const passwordLink = `${appUrl}/auth/set-password?token=${token}`;
+
   // Send the welcome email
-  await sendWelcomeEmail(data.email, data.name);
+  await sendWelcomeEmail(data.email, data.name, passwordLink);
 
   revalidatePath("/admin/users");
   return newUser;

@@ -1,12 +1,13 @@
 import {
   pgTable,
+  uuid,
+  varchar,
   text,
   timestamp,
+  integer,
   boolean,
-  uuid,
   pgEnum,
   real,
-  integer,
   serial,
 } from "drizzle-orm/pg-core";
 import { relations, type InferInsertModel } from "drizzle-orm";
@@ -111,6 +112,14 @@ export const accountRequests = pgTable("account_request", {
 
 
 // Update existing relations
+export const passwordResetTokens = pgTable("password_reset_token", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expiresAt", { mode: "date" }).notNull(),
+  createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
+});
+
 export const usersRelations = relations(users, ({ many }) => ({
   invoices: many(invoices),
   notifications: many(notifications),

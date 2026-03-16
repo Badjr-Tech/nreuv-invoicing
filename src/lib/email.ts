@@ -8,9 +8,9 @@ if (process.env.SENDGRID_API_KEY) {
 
 const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@nreuv.com'; // Change this to your verified sender
 
-export const sendWelcomeEmail = async (to: string, name: string) => {
+export const sendWelcomeEmail = async (to: string, name: string, passwordLink: string) => {
   if (!process.env.SENDGRID_API_KEY) {
-    console.log(`Simulating welcome email to ${to}`);
+    console.log(`Simulating welcome email to ${to} with link: ${passwordLink}`);
     return;
   }
 
@@ -20,7 +20,7 @@ export const sendWelcomeEmail = async (to: string, name: string) => {
     templateId: 'd-cd12896632844af0a362cb0bf9e6c7ec',
     dynamicTemplateData: {
       name: name,
-      // Add other variables if your template expects them (e.g., login_url: 'https://nreuv-invoicing.vercel.app/auth/signin')
+      PASSWORD_LINK: passwordLink,
     },
   };
 
