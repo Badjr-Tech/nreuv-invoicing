@@ -35,3 +35,31 @@ export const sendWelcomeEmail = async (to: string, name: string) => {
     }
   }
 };
+
+export const sendInvoiceReminderEmail = async (to: string, name: string) => {
+  if (!process.env.SENDGRID_API_KEY) {
+    console.log(`Simulating invoice reminder email to ${to}`);
+    return;
+  }
+
+  const msg = {
+    to,
+    from: FROM_EMAIL,
+    templateId: 'd-3df719ef3cfb435ab8325dc316cdddec',
+    dynamicTemplateData: {
+      name: name,
+    },
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log(`Invoice reminder email sent successfully to ${to}`);
+  } catch (error: any) {
+    console.error('Error sending invoice reminder email');
+    console.error(error);
+    if (error.response) {
+      console.error(error.response.body);
+    }
+  }
+};
+
