@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import InvoicePdfDocument from "@/lib/pdf-generator";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { addDays, format } from "date-fns";
-import { sendWelcomeEmail } from "@/lib/email";
+import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail } from "@/lib/email";
 import { generatePayPeriods } from "@/lib/schedule-utils";
 
 // New interfaces for deadline and payment schedule settings
@@ -571,6 +571,24 @@ export async function updateInvoiceStatus(invoiceId: string, newStatus: "PENDING
     // Only set submittedDate if it's the first time submitting
     if (invoiceRecord.status === "DRAFT") {
       updateData.submittedDate = new Date();
+      
+      // Notify admins
+      try {
+        const admins = await db.query.users.findMany({
+          where: eq(users.role, "ADMIN"),
+        });
+        
+        const userName = invoiceRecord.user?.name || invoiceRecord.user?.email || "Unknown User";
+        const invoiceNumber = invoiceRecord.invoiceNumber || invoiceRecord.id.substring(0, 8);
+        
+        for (const admin of admins) {
+          if (admin.email) {
+            await sendAdminInvoiceSubmittedEmail(admin.email, userName, invoiceNumber);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to send admin notification email:", error);
+      }
     }
   }
 

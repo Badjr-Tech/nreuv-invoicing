@@ -63,3 +63,58 @@ export const sendInvoiceReminderEmail = async (to: string, name: string) => {
   }
 };
 
+export const sendLateInvoiceEmail = async (to: string, name: string) => {
+  if (!process.env.SENDGRID_API_KEY) {
+    console.log(`Simulating late invoice email to ${to}`);
+    return;
+  }
+
+  const msg = {
+    to,
+    from: FROM_EMAIL,
+    templateId: 'd-6ad80364f38c47b683fe4058da7f826a',
+    dynamicTemplateData: {
+      name: name,
+    },
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log(`Late invoice email sent successfully to ${to}`);
+  } catch (error: any) {
+    console.error('Error sending late invoice email');
+    console.error(error);
+    if (error.response) {
+      console.error(error.response.body);
+    }
+  }
+};
+
+export const sendAdminInvoiceSubmittedEmail = async (to: string, userName: string, invoiceNumber: string | number) => {
+  if (!process.env.SENDGRID_API_KEY) {
+    console.log(`Simulating admin invoice submitted email to ${to} for user ${userName}`);
+    return;
+  }
+
+  const msg = {
+    to,
+    from: FROM_EMAIL,
+    templateId: 'd-abfea38b0bb846a3b430c243500f79db',
+    dynamicTemplateData: {
+      user_name: userName,
+      invoice_number: invoiceNumber,
+    },
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log(`Admin invoice submitted email sent successfully to ${to}`);
+  } catch (error: any) {
+    console.error('Error sending admin invoice submitted email');
+    console.error(error);
+    if (error.response) {
+      console.error(error.response.body);
+    }
+  }
+};
+
