@@ -118,3 +118,31 @@ export const sendAdminInvoiceSubmittedEmail = async (to: string, userName: strin
   }
 };
 
+export const sendAdminLateSubmissionEmail = async (to: string, userName: string, invoiceNumber: string | number, daysLate: number) => {
+  if (!process.env.SENDGRID_API_KEY) {
+    console.log(`Simulating admin late submission email to ${to} for user ${userName}, invoice ${invoiceNumber} (${daysLate} days late)`);
+    return;
+  }
+
+  const msg = {
+    to,
+    from: FROM_EMAIL,
+    templateId: 'd-115673158869494785d8a4d8d1017831',
+    dynamicTemplateData: {
+      user_name: userName,
+      invoice_number: invoiceNumber,
+      days_late: daysLate,
+    },
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log(`Admin late submission email sent successfully to ${to}`);
+  } catch (error: any) {
+    console.error('Error sending admin late submission email');
+    console.error(error);
+    if (error.response) {
+      console.error(error.response.body);
+    }
+  }
+};

@@ -22,10 +22,9 @@ export async function GET(request: Request) {
     const startOfTargetDay = startOfDay(targetDate);
     const endOfTargetDay = endOfDay(targetDate);
 
-    // Find all DRAFT invoices due on the target date
+    // Find all invoices due on the target date regardless of status
     const upcomingInvoices = await db.query.invoices.findMany({
       where: and(
-        eq(invoices.status, "DRAFT"),
         gt(invoices.dueDate, startOfTargetDay),
         lte(invoices.dueDate, endOfTargetDay)
       ),
