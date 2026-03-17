@@ -113,6 +113,13 @@
       "when": 1773620068654,
       "tag": "0015_tiny_steel_serpent",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1773711495289,
+      "tag": "0016_abnormal_jigsaw",
+      "breakpoints": true
     }
   ]
 }

@@ -42,6 +42,10 @@ export const users = pgTable("user", {
   emailVerified: timestamp("email_verified", { mode: "date" }), // Added emailVerified
   hourlyRate: real("hourly_rate").default(0).notNull(), // Added hourlyRate
   managerId: uuid("manager_id").references((): any => users.id),
+  // New fields for user profile
+  address: varchar("address", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  profilePictureUrl: varchar("profile_picture_url", { length: 255 }),
 });
 
 export type InsertUser = InferInsertModel<typeof users>;
@@ -109,7 +113,14 @@ export const accountRequests = pgTable("account_request", {
   processedAt: timestamp("processed_at", { mode: "date" }), // New column to store processing time
 });
 
-
+export const documents = pgTable("document", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  fileUrl: text("file_url").notNull(), // Stored URL from Vercel Blob
+  uploadedById: uuid("uploaded_by_id").references(() => users.id), // Admin who uploaded it
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
 
 // Update existing relations
 export const passwordResetTokens = pgTable("password_reset_token", {
@@ -125,6 +136,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   notifications: many(notifications),
   employees: many(users, { relationName: "manager" }),
   categoryBundles: many(userCategoryBundles),
+  documents: many(documents), // Add documents relation
 }));
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
@@ -215,6 +227,18 @@ export const passwordResetTokensRelations = relations(passwordResetTokens, ({ on
   user: one(users, {
     fields: [passwordResetTokens.userId],
     references: [users.id],
+  }),
+}));
+
+export const documentsRelations = relations(documents, ({ one }) => ({
+  user: one(users, {
+    fields: [documents.userId],
+    references: [users.id],
+  }),
+  uploadedBy: one(users, {
+    fields: [documents.uploadedById],
+    references: [users.id],
+    relationName: "uploaded_documents", // To differentiate from the user relation
   }),
 }));
 
