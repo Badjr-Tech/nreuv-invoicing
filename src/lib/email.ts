@@ -6,7 +6,7 @@ if (process.env.SENDGRID_API_KEY) {
   console.warn('SENDGRID_API_KEY is not set. Emails will not be sent.');
 }
 
-const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || '"NREUV Invoicing" <noreply@nreuv.com>'; // Change this to your verified sender
+const FALLBACK_FROM_EMAIL_ADDRESS = 'noreply@nreuv.com'; // Fallback email address
 
 export const sendWelcomeEmail = async (to: string, name: string, passwordLink: string) => {
   if (!process.env.SENDGRID_API_KEY) {
@@ -14,9 +14,14 @@ export const sendWelcomeEmail = async (to: string, name: string, passwordLink: s
     return;
   }
 
+  const senderEmail = process.env.SENDGRID_FROM_EMAIL || FALLBACK_FROM_EMAIL_ADDRESS;
+
   const msg = {
     to,
-    from: FROM_EMAIL,
+    from: {
+      name: "NREUV Invoicing",
+      email: senderEmail,
+    },
     templateId: 'd-cd12896632844af0a362cb0bf9e6c7ec',
     dynamicTemplateData: {
       name: name,
@@ -42,9 +47,14 @@ export const sendInvoiceReminderEmail = async (to: string, name: string, invoice
     return;
   }
 
+  const senderEmail = process.env.SENDGRID_FROM_EMAIL || FALLBACK_FROM_EMAIL_ADDRESS;
+
   const msg = {
     to,
-    from: FROM_EMAIL,
+    from: {
+      name: "NREUV Invoicing",
+      email: senderEmail,
+    },
     templateId: 'd-3df719ef3cfb435ab8325dc316cdddec',
     dynamicTemplateData: {
       name: name,
@@ -70,9 +80,14 @@ export const sendLateInvoiceEmail = async (to: string, name: string, invoiceLink
     return;
   }
 
+  const senderEmail = process.env.SENDGRID_FROM_EMAIL || FALLBACK_FROM_EMAIL_ADDRESS;
+
   const msg = {
     to,
-    from: FROM_EMAIL,
+    from: {
+      name: "NREUV Invoicing",
+      email: senderEmail,
+    },
     templateId: 'd-6ad80364f38c47b683fe4058da7f826a',
     dynamicTemplateData: {
       name: name,
@@ -99,9 +114,14 @@ export const sendAdminInvoiceSubmittedEmail = async (to: string, userName: strin
     return;
   }
 
+  const senderEmail = process.env.SENDGRID_FROM_EMAIL || FALLBACK_FROM_EMAIL_ADDRESS;
+
   const msg = {
     to,
-    from: FROM_EMAIL,
+    from: {
+      name: "NREUV Invoicing",
+      email: senderEmail,
+    },
     templateId: 'd-abfea38b0bb846a3b430c243500f79db',
     dynamicTemplateData: {
       user_name: userName,
@@ -127,9 +147,14 @@ export const sendAdminLateSubmissionEmail = async (to: string, userName: string,
     return;
   }
 
+  const senderEmail = process.env.SENDGRID_FROM_EMAIL || FALLBACK_FROM_EMAIL_ADDRESS;
+
   const msg = {
     to,
-    from: FROM_EMAIL,
+    from: {
+      name: "NREUV Invoicing",
+      email: senderEmail,
+    },
     templateId: 'd-115673158869494785d8a4d8d1017831',
     dynamicTemplateData: {
       user_name: userName,
