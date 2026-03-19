@@ -3,9 +3,8 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createInvoice } from '@/app/actions';
-import { PayPeriod } from '@/lib/schedule-utils';
-
-
+import { PayPeriod, GlobalSchedule } from '@/lib/schedule-utils';
+import { isPast, startOfDay, addDays } from 'date-fns';
 
 interface Category {
   id: string;
@@ -17,9 +16,10 @@ interface NewInvoiceClientProps {
   payPeriods: PayPeriod[];
   hourlyRate: number;
   nextInvoiceNumber: number;
+  globalSchedule: GlobalSchedule | null;
 }
 
-export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, nextInvoiceNumber }: NewInvoiceClientProps) {
+export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, nextInvoiceNumber, globalSchedule }: NewInvoiceClientProps) {
   const router = useRouter();
   
   // Default to the first pay period if available, otherwise today
@@ -37,6 +37,21 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
   const selectedPayPeriod = payPeriods.find(
     (p) => new Date(p.invoiceDate).toISOString().split('T')[0] === invoiceDate
   );
+
+  // --- Late Invoice Calculation Logic ---
+  let isInvoiceLate = false;
+  let submissionDeadline: Date | null = null;
+
+  if (globalSchedule && globalSchedule.submissionOffsetDays !== null) {
+    const selectedPaymentDate = new Date(invoiceDate);
+    // Calculate submission deadline based on selected Payment Date
+    const calculatedSubmissionDeadline = addDays(selectedPaymentDate, -globalSchedule.submissionOffsetDays);
+    submissionDeadline = startOfDay(calculatedSubmissionDeadline); // Normalize to start of day for comparison
+    
+    // Check if current date is past the submission deadline for the selected invoiceDate
+    isInvoiceLate = submissionDeadline ? isPast(submissionDeadline) : false;
+  }
+  // --- End Late Invoice Calculation Logic ---
 
   const validateItemDate = (dateString: string, itemIndex: number) => {
     const newErrors = [...itemErrors];
@@ -231,12 +246,17 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
                 className="border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-nreuv-accent outline-none"
               />
             )}
-            {selectedPayPeriod && selectedPayPeriod.submissionDeadline && (
+            {selectedPayPeriod && submissionDeadline && (
               <div className="mt-2 text-sm text-slate-500">
                 Submission Deadline:{" "}
                 <span className="font-medium">
-                  {new Date(selectedPayPeriod.submissionDeadline).toLocaleDateString()}
+                  {submissionDeadline.toLocaleDateString()}
                 </span>
+                {isInvoiceLate && (
+                  <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 font-semibold rounded-full text-xs">
+                    LATE
+                  </span>
+                )}
               </div>
             )}
           </div>

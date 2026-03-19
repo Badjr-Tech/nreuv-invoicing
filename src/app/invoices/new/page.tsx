@@ -4,7 +4,7 @@ import { categories, users, invoiceDeadlineSettings, invoices } from "@/db/schem
 import { redirect } from "next/navigation";
 import NewInvoiceClient from "./NewInvoiceClient";
 import { eq, desc } from "drizzle-orm";
-import { generatePayPeriods } from "@/lib/schedule-utils";
+import { generatePayPeriods, GlobalSchedule } from "@/lib/schedule-utils";
 
 export default async function NewInvoicePage() {
   const session = await auth();
@@ -59,6 +59,7 @@ export default async function NewInvoicePage() {
         payPeriods={payPeriods}
         hourlyRate={userRecord?.hourlyRate || 0}
         nextInvoiceNumber={nextInvoiceNumber}
+        globalSchedule={globalSchedule as GlobalSchedule | null}
       />
     </div>
   );
