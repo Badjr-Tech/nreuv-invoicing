@@ -866,6 +866,39 @@ export async function resetOwnPassword(currentPassword: string, newPassword: str
   await db.update(users).set({ password: hashedPassword }).where(eq(users.id, session.user.id));
 }
 
+interface UpdateUserProfileData {
+  name?: string;
+  address?: string;
+  phone?: string;
+  profilePictureUrl?: string;
+}
+
+export async function updateUserProfile(userIdToUpdate: string, data: UpdateUserProfileData) {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  // A user can only update their own profile, unless they are an ADMIN
+  if (session.user.id !== userIdToUpdate && session.user.role !== "ADMIN") {
+    throw new Error("Forbidden: You can only update your own profile.");
+  }
+  
+  await db.update(users)
+    .set({
+      name: data.name,
+      address: data.address,
+      phone: data.phone,
+      profilePictureUrl: data.profilePictureUrl,
+    })
+    .where(eq(users.id, userIdToUpdate)); // Use userIdToUpdate here
+
+  revalidatePath(`/profile`); // Revalidate the user's own profile page
+  revalidatePath(`/admin/users/${userIdToUpdate}/profile`); // Revalidate admin view of user's profile
+  revalidatePath("/"); // Revalidate home page if user info is displayed there
+}
+
 export async function addUserManually(data: any) {
   const session = await auth();
 
