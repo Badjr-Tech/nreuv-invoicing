@@ -26,7 +26,9 @@ export default function AnalyticsClient({ invoiceMetrics, categoryBreakdown, use
               </tr>
             </thead>
             <tbody>
-              {invoiceMetrics.map((metric, index) => (
+              {invoiceMetrics.length === 0 ? (
+                <tr><td colSpan={3} className="py-6 px-4 text-sm text-slate-400 text-center">No approved invoices yet.</td></tr>
+              ) : invoiceMetrics.map((metric, index) => (
                 <tr key={index} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50">
                   <td className="py-3 px-4 text-sm text-slate-900">{metric.period}</td>
                   <td className="py-3 px-4 text-sm text-slate-900 text-right">${metric.totalAmount.toFixed(2)}</td>
@@ -51,7 +53,9 @@ export default function AnalyticsClient({ invoiceMetrics, categoryBreakdown, use
               </tr>
             </thead>
             <tbody>
-              {categoryBreakdown.map((item, index) => (
+              {categoryBreakdown.length === 0 ? (
+                <tr><td colSpan={3} className="py-6 px-4 text-sm text-slate-400 text-center">No category data yet.</td></tr>
+              ) : categoryBreakdown.map((item, index) => (
                 <tr key={index} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50">
                   <td className="py-3 px-4 text-sm text-slate-900">{item.category}</td>
                   <td className="py-3 px-4 text-sm text-slate-900 text-right">${item.totalAmount.toFixed(2)}</td>
@@ -77,7 +81,9 @@ export default function AnalyticsClient({ invoiceMetrics, categoryBreakdown, use
               </tr>
             </thead>
             <tbody>
-              {userPerformance.map((user, index) => (
+              {userPerformance.length === 0 ? (
+                <tr><td colSpan={4} className="py-6 px-4 text-sm text-slate-400 text-center">No user performance data yet.</td></tr>
+              ) : userPerformance.map((user, index) => (
                 <tr key={index} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50">
                   <td className="py-3 px-4 text-sm text-slate-900">{user.userName}</td>
                   <td className="py-3 px-4 text-sm text-slate-900 text-right">${user.totalAmount.toFixed(2)}</td>
