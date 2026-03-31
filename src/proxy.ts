@@ -1,15 +1,18 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 
-const publicRoutes = ["/auth/signin", "/auth/request-account", "/auth/set-password"]; // Added /auth/request-account
-const userRoutes = ["/my-invoices", "/invoices", "/settings", "/notifications"];
-const payrollManagerRoutes = ["/invoices", "/notifications"];
-const adminRoutes = ["/admin/users", "/admin/settings", "/notifications", "/admin/analytics"];
+const publicRoutes = ["/auth/signin", "/auth/request-account", "/auth/set-password"];
+const userRoutes = ["/my-invoices", "/invoices", "/settings", "/notifications", "/profile"];
+const payrollManagerRoutes = ["/invoices", "/notifications", "/profile"];
+const adminRoutes = ["/admin/users", "/admin/settings", "/notifications", "/admin/analytics", "/admin/account-requests"];
 
 export default auth((req: any) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
   const userRole = req.auth?.user?.role;
+
+  // Add dynamic profile route for admin
+  const isAdminUserProfileRoute = nextUrl.pathname.startsWith('/admin/users/') && nextUrl.pathname.endsWith('/profile');
 
   const isPublicRoute = publicRoutes.includes(nextUrl.pathname);
 
@@ -46,9 +49,11 @@ export default auth((req: any) => {
     }
 
     if (userRole === "ADMIN") {
-      // ADMINs have full access, no specific route checks needed here as they can access all
-      // We will assume that any route not caught by previous conditions is accessible to ADMIN
-      return NextResponse.next();
+      if (nextUrl.pathname === "/" || adminRoutes.some(route => nextUrl.pathname.startsWith(route)) || isAdminUserProfileRoute) {
+        return NextResponse.next();
+      }
+      // If an ADMIN tries to access an unauthorized route, redirect to their dashboard
+      return NextResponse.redirect(new URL("/", nextUrl));
     }
   }
 

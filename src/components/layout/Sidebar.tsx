@@ -63,6 +63,20 @@ export default async function Sidebar() {
           )}
           {session?.user?.role === "ADMIN" && (
             <li>
+              <Link href="/admin/analytics" className="block py-2.5 px-4 rounded transition duration-200 hover:bg-black/20">
+                Analytics
+              </Link>
+            </li>
+          )}
+          {session?.user?.role === "ADMIN" && (
+            <li>
+              <Link href="/admin/account-requests" className="block py-2.5 px-4 rounded transition duration-200 hover:bg-black/20">
+                Account Requests
+              </Link>
+            </li>
+          )}
+          {session?.user?.role === "ADMIN" && (
+            <li>
               <Link href="/admin/settings" className="block py-2.5 px-4 rounded transition duration-200 hover:bg-black/20">
                 System Settings
               </Link>
