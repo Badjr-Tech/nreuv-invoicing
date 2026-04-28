@@ -20,6 +20,14 @@ export async function uploadUserDocument(formData: FormData) {
     throw new Error("Missing userId or file for upload.");
   }
 
+  // Validate file type
+  const allowedTypes = ["application/pdf"];
+  const allowedExtensions = [".pdf"];
+  const fileExtension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+  if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+    throw new Error("Only PDF files are allowed.");
+  }
+
   // Sanitize filename for storage
   const fileName = file.name.normalize("NFC").replace(/[^a-zA-Z0-9.\-_]/g, "");
 

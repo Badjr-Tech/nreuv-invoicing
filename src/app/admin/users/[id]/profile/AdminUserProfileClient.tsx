@@ -80,6 +80,14 @@ export default function AdminUserProfileClient({ user, currentAdminId }: AdminUs
       setIsUploadingDocument(false);
       return;
     }
+    const allowedTypes = ["application/pdf"];
+    const allowedExtensions = [".pdf"];
+    const fileExtension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+      setDocumentError("Only PDF files are allowed.");
+      setIsUploadingDocument(false);
+      return;
+    }
     if (file.size > 3 * 1024 * 1024) { // 3MB limit
         setDocumentError("File size limit is 3MB.");
         setIsUploadingDocument(false);
