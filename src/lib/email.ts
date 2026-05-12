@@ -108,13 +108,26 @@ export const sendLateInvoiceEmail = async (to: string, name: string, invoiceLink
   }
 };
 
-export const sendAdminInvoiceSubmittedEmail = async (to: string, userName: string, invoiceNumber: string | number) => {
+export const sendAdminInvoiceSubmittedEmail = async (
+  to: string,
+  userName: string,
+  invoiceNumber: string | number,
+  userEmail: string,
+  amount: number,
+  submittedDate: Date,
+) => {
   if (!process.env.SENDGRID_API_KEY) {
     console.log(`Simulating admin invoice submitted email to ${to} for user ${userName}`);
     return;
   }
 
   const senderEmail = process.env.SENDGRID_FROM_EMAIL || FALLBACK_FROM_EMAIL_ADDRESS;
+
+  const amountFormatted = `$${amount.toFixed(2)}`;
+  const submittedFormatted = submittedDate.toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 
   const msg = {
     to,
@@ -124,8 +137,23 @@ export const sendAdminInvoiceSubmittedEmail = async (to: string, userName: strin
     },
     templateId: 'd-abfea38b0bb846a3b430c243500f79db',
     dynamicTemplateData: {
+      // Pass multiple naming conventions so the SendGrid template picks
+      // up whichever key it references.
+      name: userName,
       user_name: userName,
+      USER_NAME: userName,
+      USER: userName,
+      user_email: userEmail,
+      USER_EMAIL: userEmail,
+      EMAIL: userEmail,
+      amount: amountFormatted,
+      AMOUNT: amountFormatted,
+      submitted: submittedFormatted,
+      submitted_date: submittedFormatted,
+      SUBMITTED: submittedFormatted,
+      SUBMITTED_DATE: submittedFormatted,
       invoice_number: invoiceNumber,
+      INVOICE_NUMBER: invoiceNumber,
     },
   };
 

@@ -593,11 +593,21 @@ export async function updateInvoiceStatus(invoiceId: string, newStatus: "PENDING
         });
         
         const userName = invoiceRecord.user?.name || invoiceRecord.user?.email || "Unknown User";
+        const userEmail = invoiceRecord.user?.email || "";
         const invoiceNumber = invoiceRecord.invoiceNumber || invoiceRecord.id.substring(0, 8);
-        
+        const amount = Number(invoiceRecord.totalCost || 0);
+        const submittedDate = updateData.submittedDate ?? new Date();
+
         for (const admin of admins) {
           if (admin.email) {
-            await sendAdminInvoiceSubmittedEmail(admin.email, userName, invoiceNumber);
+            await sendAdminInvoiceSubmittedEmail(
+              admin.email,
+              userName,
+              invoiceNumber,
+              userEmail,
+              amount,
+              submittedDate,
+            );
           }
         }
       } catch (error) {
