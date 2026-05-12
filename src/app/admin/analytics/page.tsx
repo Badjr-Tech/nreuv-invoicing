@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import AnalyticsClient from "./AnalyticsClient";
 import { db } from "@/db";
 import { invoices, invoiceItems, users, categories } from "@/db/schema";
-import { sql, sum, count, desc, asc, eq, and } from "drizzle-orm";
+import { sql, sum, count, desc, eq } from "drizzle-orm";
 import { format } from "date-fns";
 
 export default async function AdminAnalyticsPage() {
@@ -43,7 +43,7 @@ export default async function AdminAnalyticsPage() {
     .leftJoin(categories, eq(invoiceItems.categoryId, categories.id))
     .where(eq(invoices.status, "APPROVED"))
     .groupBy(categories.name)
-    .orderBy(desc(sql`totalAmount`));
+    .orderBy(desc(sum(sql`${invoiceItems.hours} * ${invoiceItems.rate}`)));
 
   const categoryBreakdown = categoryBreakdownRaw.map((row) => ({
     category: row.categoryName || "Uncategorized",
@@ -65,7 +65,7 @@ export default async function AdminAnalyticsPage() {
     .leftJoin(users, eq(invoices.userId, users.id))
     .where(eq(invoices.status, "APPROVED"))
     .groupBy(users.id, users.name, users.email)
-    .orderBy(desc(sql`totalAmount`));
+    .orderBy(desc(sum(invoices.totalCost)));
 
   const userPerformance = userPerformanceRaw.map((row) => ({
     userName: row.userName || row.userEmail || "Unknown",
