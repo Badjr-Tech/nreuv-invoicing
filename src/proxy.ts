@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 const publicRoutes = ["/auth/signin", "/auth/request-account", "/auth/set-password"];
 const userRoutes = ["/my-invoices", "/invoices", "/settings", "/notifications", "/profile"];
 const payrollManagerRoutes = ["/invoices", "/notifications", "/profile"];
-const adminRoutes = ["/admin/users", "/admin/settings", "/notifications", "/admin/analytics", "/admin/account-requests"];
+const adminRoutes = ["/admin/users", "/admin/settings", "/notifications", "/admin/analytics", "/admin/account-requests", "/invoices"];
 
 export default auth((req: any) => {
   const { nextUrl } = req;
