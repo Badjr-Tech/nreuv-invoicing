@@ -598,6 +598,8 @@ export async function updateInvoiceStatus(invoiceId: string, newStatus: "PENDING
         const invoiceNumber = invoiceRecord.invoiceNumber || invoiceRecord.id.substring(0, 8);
         const amount = Number(invoiceRecord.totalCost || 0);
         const submittedDate = updateData.submittedDate ?? new Date();
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nreuv-invoicing.vercel.app';
+        const adminLink = `${appUrl}/invoices/${invoiceRecord.id}`;
 
         for (const admin of admins) {
           if (admin.email) {
@@ -608,6 +610,7 @@ export async function updateInvoiceStatus(invoiceId: string, newStatus: "PENDING
               userEmail,
               amount,
               submittedDate,
+              adminLink,
             );
           }
         }

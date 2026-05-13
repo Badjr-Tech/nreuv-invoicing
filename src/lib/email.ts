@@ -115,6 +115,7 @@ export const sendAdminInvoiceSubmittedEmail = async (
   userEmail: string,
   amount: number,
   submittedDate: Date,
+  adminLink: string,
 ) => {
   if (!process.env.SENDGRID_API_KEY) {
     console.log(`Simulating admin invoice submitted email to ${to} for user ${userName}`);
@@ -136,53 +137,14 @@ export const sendAdminInvoiceSubmittedEmail = async (
       email: senderEmail,
     },
     templateId: 'd-abfea38b0bb846a3b430c243500f79db',
+    // Variable names match the SendGrid template's {{...}} placeholders.
     dynamicTemplateData: {
-      // Pass multiple naming conventions so the SendGrid template picks
-      // up whichever key it references.
-      name: userName,
-      user_name: userName,
       USER_NAME: userName,
-      USER: userName,
-      user_email: userEmail,
       USER_EMAIL: userEmail,
-      EMAIL: userEmail,
-      // Amount variants
-      Amount: amountFormatted,
-      amount: amountFormatted,
-      AMOUNT: amountFormatted,
-      total: amountFormatted,
-      Total: amountFormatted,
-      TOTAL: amountFormatted,
-      total_cost: amountFormatted,
-      TOTAL_COST: amountFormatted,
-      totalCost: amountFormatted,
-      invoice_amount: amountFormatted,
       INVOICE_AMOUNT: amountFormatted,
-      invoice_total: amountFormatted,
-      INVOICE_TOTAL: amountFormatted,
-      cost: amountFormatted,
-      COST: amountFormatted,
-      // Submitted-date variants
-      Submitted: submittedFormatted,
-      submitted: submittedFormatted,
-      SUBMITTED: submittedFormatted,
-      submitted_at: submittedFormatted,
-      SUBMITTED_AT: submittedFormatted,
-      submittedAt: submittedFormatted,
-      submitted_date: submittedFormatted,
-      SUBMITTED_DATE: submittedFormatted,
-      submittedDate: submittedFormatted,
-      submitted_on: submittedFormatted,
-      SUBMITTED_ON: submittedFormatted,
-      submission_date: submittedFormatted,
       SUBMISSION_DATE: submittedFormatted,
-      submission_time: submittedFormatted,
-      date_submitted: submittedFormatted,
-      DATE_SUBMITTED: submittedFormatted,
-      // Invoice number
-      invoice_number: invoiceNumber,
+      ADMIN_LINK: adminLink,
       INVOICE_NUMBER: invoiceNumber,
-      invoiceNumber: invoiceNumber,
     },
   };
 
