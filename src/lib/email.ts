@@ -160,13 +160,26 @@ export const sendAdminInvoiceSubmittedEmail = async (
   }
 };
 
-export const sendAdminLateSubmissionEmail = async (to: string, userName: string, invoiceNumber: string | number, daysLate: number) => {
+export const sendAdminLateSubmissionEmail = async (
+  to: string,
+  userName: string,
+  invoiceNumber: string | number,
+  userEmail: string,
+  amount: number,
+  submittedDate: Date | null,
+  adminLink: string,
+) => {
   if (!process.env.SENDGRID_API_KEY) {
-    console.log(`Simulating admin late submission email to ${to} for user ${userName}, invoice ${invoiceNumber} (${daysLate} days late)`);
+    console.log(`Simulating admin late submission email to ${to} for user ${userName}, invoice ${invoiceNumber}`);
     return;
   }
 
   const senderEmail = process.env.SENDGRID_FROM_EMAIL || FALLBACK_FROM_EMAIL_ADDRESS;
+
+  const amountFormatted = `$${amount.toFixed(2)}`;
+  const submittedFormatted = submittedDate
+    ? submittedDate.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+    : "Not yet submitted";
 
   const msg = {
     to,
@@ -175,10 +188,14 @@ export const sendAdminLateSubmissionEmail = async (to: string, userName: string,
       email: senderEmail,
     },
     templateId: 'd-115673158869494785d8a4d8d1017831',
+    // Variable names match the SendGrid template's {{...}} placeholders.
     dynamicTemplateData: {
-      user_name: userName,
-      invoice_number: invoiceNumber,
-      days_late: daysLate,
+      USER_NAME: userName,
+      USER_EMAIL: userEmail,
+      INVOICE_AMOUNT: amountFormatted,
+      SUBMISSION_DATE: submittedFormatted,
+      ADMIN_LINK: adminLink,
+      INVOICE_NUMBER: invoiceNumber,
     },
   };
 

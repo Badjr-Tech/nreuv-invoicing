@@ -40,13 +40,27 @@ export async function GET(request: Request) {
       where: eq(users.role, "ADMIN"),
     });
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nreuv-invoicing.vercel.app';
+
     for (const invoice of lateInvoices) {
       const userName = invoice.user?.name || invoice.user?.email || "Unknown User";
+      const userEmail = invoice.user?.email || "";
       const invoiceNumber = invoice.invoiceNumber || invoice.id.substring(0, 8);
-      
+      const amount = Number(invoice.totalCost || 0);
+      const submittedDate = invoice.submittedDate ? new Date(invoice.submittedDate) : null;
+      const adminLink = `${appUrl}/invoices/${invoice.id}`;
+
       for (const admin of admins) {
         if (admin.email) {
-          await sendAdminLateSubmissionEmail(admin.email, userName, invoiceNumber, 2); // 2 days late
+          await sendAdminLateSubmissionEmail(
+            admin.email,
+            userName,
+            invoiceNumber,
+            userEmail,
+            amount,
+            submittedDate,
+            adminLink,
+          );
         }
       }
     }
