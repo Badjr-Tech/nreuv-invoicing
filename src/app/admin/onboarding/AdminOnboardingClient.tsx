@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 interface Row {
@@ -53,13 +54,21 @@ export default function AdminOnboardingClient({ rows, totalTasks }: Props) {
 
   return (
     <div className="p-2 md:p-4">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-nreuv-black tracking-tight">
-          Onboarding Progress
-        </h1>
-        <p className="text-slate-600 mt-1 text-sm">
-          Track every team member's progress through the {totalTasks}-step checklist.
-        </p>
+      <div className="mb-6 flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-3xl font-bold text-nreuv-black tracking-tight">
+            Onboarding Progress
+          </h1>
+          <p className="text-slate-600 mt-1 text-sm">
+            Track every team member's progress through the {totalTasks}-step checklist.
+          </p>
+        </div>
+        <Link
+          href="/admin/onboarding/manage"
+          className="px-4 py-2 bg-nreuv-primary text-white text-sm font-semibold rounded-md hover:opacity-90 whitespace-nowrap"
+        >
+          Manage Checklist →
+        </Link>
       </div>
 
       {/* Stat cards */}
