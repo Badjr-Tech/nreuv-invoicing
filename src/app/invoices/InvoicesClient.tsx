@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import Link from "next/link";
 import DownloadPdfButton from "@/components/dashboard/DownloadPdfButton";
+import { toCalendarDate } from "@/lib/date-utils";
 
 interface InvoicesClientProps {
   userInvoices: any[];
@@ -120,7 +121,7 @@ export default function InvoicesClient({ userInvoices, allUsers, currentUserRole
                       </td>
                     )}
                     <td className="py-3 px-4 text-sm text-slate-600">
-                      {format(new Date(invoice.invoiceDate), "MMM dd, yyyy")}
+                      {format(toCalendarDate(invoice.invoiceDate), "MMM dd, yyyy")}
                     </td>
                     <td className="py-3 px-4 text-sm text-slate-900">
                       {invoice.totalHours}

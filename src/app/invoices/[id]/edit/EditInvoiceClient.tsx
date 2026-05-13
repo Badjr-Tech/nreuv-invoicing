@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateInvoice } from '@/app/actions';
 import { PayPeriod } from '@/lib/schedule-utils';
+import { toCalendarDate } from '@/lib/date-utils';
 
 
 
@@ -220,7 +221,7 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
               >
                 {/* Include the current date if it's not in the list to avoid breaking existing drafts */}
                 {!payPeriods.some(p => new Date(p.invoiceDate).toISOString().split('T')[0] === invoiceDate) && (
-                  <option value={invoiceDate}>{new Date(invoiceDate).toLocaleDateString()} (Current)</option>
+                  <option value={invoiceDate}>{toCalendarDate(invoiceDate).toLocaleDateString()} (Current)</option>
                 )}
                 {payPeriods.map((period, idx) => {
                   const dateStr = new Date(period.invoiceDate).toISOString().split('T')[0];

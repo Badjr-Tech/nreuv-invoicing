@@ -1,5 +1,6 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
+import { toCalendarDate } from "@/lib/date-utils";
 
 interface Invoice {
   id: string;
@@ -146,11 +147,11 @@ const InvoicePdfDocument = ({ invoice }: InvoicePdfProps) => (
           </Text>
           <Text style={styles.text}>
             <Text style={styles.sectionTitle}>Payment Date: </Text>
-            {invoice.invoiceDate.toLocaleDateString()}
+            {toCalendarDate(invoice.invoiceDate).toLocaleDateString()}
           </Text>
           <Text style={styles.text}>
             <Text style={styles.sectionTitle}>Submission Deadline: </Text>
-            {invoice.dueDate.toLocaleDateString()}
+            {toCalendarDate(invoice.dueDate).toLocaleDateString()}
           </Text>
         </View>
 

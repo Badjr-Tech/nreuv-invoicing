@@ -11,6 +11,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { addDays, format } from "date-fns";
 import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail } from "@/lib/email";
 import { generatePayPeriods } from "@/lib/schedule-utils";
+import { toCalendarDate } from "@/lib/date-utils";
 import { generatePasswordResetToken } from "@/lib/auth-utils";
 
 // New interfaces for deadline and payment schedule settings
@@ -763,13 +764,13 @@ export async function generateInvoicesCsv(searchParams?: {
 
   const rows = filteredAndSortedInvoices.map((invoice) => [
     invoice.user?.name || invoice.user?.email || "Unknown",
-    format(new Date(invoice.invoiceDate), "yyyy-MM-dd"),
-    format(new Date(invoice.dueDate), "yyyy-MM-dd"),
+    format(toCalendarDate(invoice.invoiceDate), "yyyy-MM-dd"),
+    format(toCalendarDate(invoice.dueDate), "yyyy-MM-dd"),
     invoice.status,
     invoice.totalHours,
     invoice.totalCost.toFixed(2),
-    invoice.submittedDate ? format(new Date(invoice.submittedDate), "yyyy-MM-dd") : "",
-    invoice.approvedDate ? format(new Date(invoice.approvedDate), "yyyy-MM-dd") : "",
+    invoice.submittedDate ? format(toCalendarDate(invoice.submittedDate), "yyyy-MM-dd") : "",
+    invoice.approvedDate ? format(toCalendarDate(invoice.approvedDate), "yyyy-MM-dd") : "",
   ]);
 
   const csvContent = [

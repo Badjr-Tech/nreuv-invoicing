@@ -5,6 +5,7 @@ import { notifications, invoices } from "@/db/schema"; // Import notifications a
 import { eq, count, and, desc } from "drizzle-orm"; // Import count, and, desc
 import { markAllNotificationsAsRead } from "@/app/actions"; // Import the action
 import { format } from "date-fns";
+import { toCalendarDate } from "@/lib/date-utils";
 
 export default async function Sidebar() {
   const session = await auth();
@@ -143,14 +144,14 @@ export default async function Sidebar() {
               </span>
               <ul className="space-y-1">
                 {approvedDates.map((d, index) => {
-                  const dateStr = format(new Date(d.invoiceDate), "yyyy-MM-dd");
+                  const dateStr = format(toCalendarDate(d.invoiceDate), "yyyy-MM-dd");
                   return (
                     <li key={index}>
                       <Link
                         href={`/invoices?filterPaymentDateStart=${dateStr}&filterPaymentDateEnd=${dateStr}&filterStatus=APPROVED`}
                         className="block py-1.5 px-4 text-sm rounded transition duration-200 hover:bg-black/20 text-gray-200 hover:text-white"
                       >
-                        {format(new Date(d.invoiceDate), "MMM dd, yyyy")}
+                        {format(toCalendarDate(d.invoiceDate), "MMM dd, yyyy")}
                       </Link>
                     </li>
                   );

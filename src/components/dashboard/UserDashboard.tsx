@@ -6,6 +6,7 @@ import { format, differenceInDays } from "date-fns";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import DownloadPdfButton from "./DownloadPdfButton";
+import { toCalendarDate } from "@/lib/date-utils";
 
 async function getUserInvoices(userId: string) {
   return db.query.invoices.findMany({
@@ -107,10 +108,10 @@ export default async function UserDashboard() {
               {userInvoices.map((invoice) => (
                 <tr key={invoice.id}>
                   <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                    <p className="text-gray-900 whitespace-no-wrap">{format(new Date(invoice.invoiceDate), "yyyy-MM-dd")}</p>
+                    <p className="text-gray-900 whitespace-no-wrap">{format(toCalendarDate(invoice.invoiceDate), "yyyy-MM-dd")}</p>
                   </td>
                   <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                    <p className="text-gray-900 whitespace-no-wrap">{format(new Date(invoice.dueDate), "yyyy-MM-dd")}</p>
+                    <p className="text-gray-900 whitespace-no-wrap">{format(toCalendarDate(invoice.dueDate), "yyyy-MM-dd")}</p>
                   </td>
                   <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                     <span

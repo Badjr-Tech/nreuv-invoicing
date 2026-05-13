@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { updateInvoiceStatus, deferInvoice } from '@/app/actions';
 import Link from 'next/link';
 import DownloadPdfButton from '@/components/dashboard/DownloadPdfButton';
+import { toCalendarDate } from '@/lib/date-utils';
 
 interface InvoiceClientProps {
   invoice: any; // Ideally use proper types from schema
@@ -85,11 +86,11 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 bg-slate-50 p-6 rounded-lg border border-slate-200">
         <div>
           <p className="text-sm font-semibold text-slate-500">Payment Date</p>
-          <p className="text-lg font-medium text-slate-900">{new Date(invoice.invoiceDate).toLocaleDateString()}</p>
+          <p className="text-lg font-medium text-slate-900">{toCalendarDate(invoice.invoiceDate).toLocaleDateString()}</p>
         </div>
         <div>
           <p className="text-sm font-semibold text-slate-500">Submission Deadline</p>
-          <p className="text-lg font-medium text-slate-900">{new Date(invoice.dueDate).toLocaleDateString()}</p>
+          <p className="text-lg font-medium text-slate-900">{toCalendarDate(invoice.dueDate).toLocaleDateString()}</p>
         </div>
         <div>
           <p className="text-sm font-semibold text-slate-500">Total Hours</p>

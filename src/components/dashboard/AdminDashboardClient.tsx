@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import DownloadPdfButton from "./DownloadPdfButton";
 import DownloadCsvButton from "./DownloadCsvButton";
 import EmployeeSidebar from "./EmployeeSidebar"; // Added import for EmployeeSidebar
+import { toCalendarDate } from "@/lib/date-utils";
 
 type InvoiceStatus = "DRAFT" | "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED" | "SENT";
 
@@ -195,10 +196,10 @@ export default function AdminDashboardClient({ initialInvoices, users }: { initi
                       <p className="text-gray-900 whitespace-no-wrap">{invoice.user?.name || invoice.user?.email}</p>
                     </td>
                     <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                      <p className="text-gray-900 whitespace-no-wrap">{format(new Date(invoice.invoiceDate), "yyyy-MM-dd")}</p>
+                      <p className="text-gray-900 whitespace-no-wrap">{format(toCalendarDate(invoice.invoiceDate), "yyyy-MM-dd")}</p>
                     </td>
                     <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                      <p className="text-gray-900 whitespace-no-wrap">{format(new Date(invoice.dueDate), "yyyy-MM-dd")}</p>
+                      <p className="text-gray-900 whitespace-no-wrap">{format(toCalendarDate(invoice.dueDate), "yyyy-MM-dd")}</p>
                     </td>
                     <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                       <span
