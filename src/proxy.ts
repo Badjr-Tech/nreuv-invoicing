@@ -2,9 +2,9 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 
 const publicRoutes = ["/auth/signin", "/auth/request-account", "/auth/set-password"];
-const userRoutes = ["/my-invoices", "/invoices", "/settings", "/notifications", "/profile"];
-const payrollManagerRoutes = ["/invoices", "/notifications", "/profile"];
-const adminRoutes = ["/admin/users", "/admin/settings", "/notifications", "/admin/analytics", "/admin/account-requests", "/invoices"];
+const userRoutes = ["/my-invoices", "/invoices", "/settings", "/notifications", "/profile", "/onboarding"];
+const payrollManagerRoutes = ["/invoices", "/notifications", "/profile", "/onboarding"];
+const adminRoutes = ["/admin/users", "/admin/settings", "/notifications", "/admin/analytics", "/admin/account-requests", "/invoices", "/onboarding"];
 
 export default auth((req: any) => {
   const { nextUrl } = req;

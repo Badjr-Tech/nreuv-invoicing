@@ -242,4 +242,61 @@ export const documentsRelations = relations(documents, ({ one }) => ({
   }),
 }));
 
+// ── Onboarding checklist ─────────────────────────────────────────────────
+export const onboardingCategories = pgTable("onboarding_category", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+});
+
+export const onboardingTasks = pgTable("onboarding_task", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  categoryId: uuid("category_id")
+    .notNull()
+    .references(() => onboardingCategories.id, { onDelete: "cascade" }),
+  // Optional inline subgrouping within a category (e.g. "Log in to Systems").
+  groupName: text("group_name"),
+  title: text("title").notNull(),
+  description: text("description"),
+  // Optional external URL (e.g. doc, form, meeting booking link).
+  externalUrl: text("external_url"),
+  // Optional file download (Vercel Blob URL for W9, signature template, etc.).
+  attachmentUrl: text("attachment_url"),
+  sortOrder: integer("sort_order").default(0).notNull(),
+});
+
+export const userOnboardingProgress = pgTable("user_onboarding_progress", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  taskId: uuid("task_id")
+    .notNull()
+    .references(() => onboardingTasks.id, { onDelete: "cascade" }),
+  completedAt: timestamp("completed_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const onboardingCategoriesRelations = relations(onboardingCategories, ({ many }) => ({
+  tasks: many(onboardingTasks),
+}));
+
+export const onboardingTasksRelations = relations(onboardingTasks, ({ one, many }) => ({
+  category: one(onboardingCategories, {
+    fields: [onboardingTasks.categoryId],
+    references: [onboardingCategories.id],
+  }),
+  progress: many(userOnboardingProgress),
+}));
+
+export const userOnboardingProgressRelations = relations(userOnboardingProgress, ({ one }) => ({
+  user: one(users, {
+    fields: [userOnboardingProgress.userId],
+    references: [users.id],
+  }),
+  task: one(onboardingTasks, {
+    fields: [userOnboardingProgress.taskId],
+    references: [onboardingTasks.id],
+  }),
+}));
+
 

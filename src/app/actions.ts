@@ -2,7 +2,7 @@
 
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { invoices, invoiceItems, invoiceDeadlineSettings, invoiceRecurrenceEnum, notifications, accountRequests, users, InsertUser, categories, categoryBundles, categoryBundleCategories, userCategoryBundles } from "@/db/schema";
+import { invoices, invoiceItems, invoiceDeadlineSettings, invoiceRecurrenceEnum, notifications, accountRequests, users, InsertUser, categories, categoryBundles, categoryBundleCategories, userCategoryBundles, onboardingTasks, userOnboardingProgress } from "@/db/schema";
 import bcrypt from "bcryptjs";
 import { and, eq, desc, asc, gte, lte, inArray, notInArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -1043,4 +1043,56 @@ export async function unassignBundleFromUser(userId: string, bundleId: string) {
     )
   );
   revalidatePath("/admin/users"); // Revalidate user management page
+}
+
+// ─── Onboarding checklist ───────────────────────────────────────────────
+export async function toggleOnboardingTask(taskId: string, completed: boolean) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+  const userId = session.user.id;
+
+  // Verify the task exists (cheap guard against arbitrary IDs).
+  const [task] = await db
+    .select({ id: onboardingTasks.id })
+    .from(onboardingTasks)
+    .where(eq(onboardingTasks.id, taskId))
+    .limit(1);
+  if (!task) {
+    throw new Error("Task not found");
+  }
+
+  if (completed) {
+    // Idempotent insert — ignore if already marked.
+    const existing = await db
+      .select({ id: userOnboardingProgress.id })
+      .from(userOnboardingProgress)
+      .where(
+        and(
+          eq(userOnboardingProgress.userId, userId),
+          eq(userOnboardingProgress.taskId, taskId),
+        ),
+      )
+      .limit(1);
+    if (existing.length === 0) {
+      await db.insert(userOnboardingProgress).values({
+        userId,
+        taskId,
+        completedAt: new Date(),
+      });
+    }
+  } else {
+    await db
+      .delete(userOnboardingProgress)
+      .where(
+        and(
+          eq(userOnboardingProgress.userId, userId),
+          eq(userOnboardingProgress.taskId, taskId),
+        ),
+      );
+  }
+
+  revalidatePath("/onboarding");
+  revalidatePath("/");
 }
