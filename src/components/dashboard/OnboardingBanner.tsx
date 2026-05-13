@@ -11,6 +11,8 @@ import { count, eq } from "drizzle-orm";
 export default async function OnboardingBanner() {
   const session = await auth();
   if (!session?.user?.id) return null;
+  // Admins don't have their own checklist — they oversee everyone else's.
+  if (session.user.role === "ADMIN") return null;
 
   let total = 0;
   let done = 0;

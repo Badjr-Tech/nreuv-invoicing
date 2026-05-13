@@ -73,7 +73,9 @@ export default async function Sidebar() {
               Dashboard
             </Link>
           </li>
-          {session?.user?.id && onboardingTotal > 0 && (() => {
+          {/* User-facing onboarding entry — hidden from admins (they get the
+              oversight view below instead). */}
+          {session?.user?.id && session.user.role !== "ADMIN" && onboardingTotal > 0 && (() => {
             const remaining = onboardingTotal - onboardingDone;
             const allDone = remaining === 0;
             return (
@@ -99,6 +101,13 @@ export default async function Sidebar() {
               </li>
             );
           })()}
+          {session?.user?.role === "ADMIN" && (
+            <li>
+              <Link href="/admin/onboarding" className="block py-2.5 px-4 rounded transition duration-200 hover:bg-black/20">
+                Onboarding Progress
+              </Link>
+            </li>
+          )}
           {session?.user?.role === "ADMIN" && (
             <li>
               <Link href="/admin/users" className="block py-2.5 px-4 rounded transition duration-200 hover:bg-black/20">
