@@ -275,32 +275,52 @@ export async function approveAccountRequest(requestId: string) {
 
 // Function to deny an account request
 export async function denyAccountRequest(requestId: string) {
-  const session = await auth();
+  try {
+    const session = await auth();
 
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can deny account requests.");
+    if (!session?.user?.id || session.user.role !== "ADMIN") {
+      throw new Error("Unauthorized or Forbidden: Only Admin can deny account requests.");
+    }
+
+    const request = await db.query.accountRequests.findFirst({
+      where: eq(accountRequests.id, requestId),
+    });
+
+    if (!request) {
+      throw new Error("Account request not found.");
+    }
+
+    // Idempotent: if it's already DENIED, treat as success rather than
+    // throwing — avoids confusing errors on double-click / stale UI.
+    if (request.status === "DENIED") {
+      return { success: true, message: "Account request was already denied." };
+    }
+
+    if (request.status !== "PENDING") {
+      throw new Error(`Cannot deny a request with status ${request.status}.`);
+    }
+
+    await db
+      .update(accountRequests)
+      .set({ status: "DENIED", processedAt: new Date() })
+      .where(eq(accountRequests.id, requestId));
+
+    // Revalidate, but don't let a downstream render error mask the success
+    // of the DB write or surface as a generic "Server Components render" error.
+    try {
+      revalidatePath("/admin/account-requests");
+    } catch (revalErr) {
+      console.error("denyAccountRequest: revalidatePath failed", revalErr);
+    }
+
+    return { success: true, message: "Account request denied." };
+  } catch (err: any) {
+    // Log the real error to server logs and rethrow a clean message so the
+    // client alert shows something actionable instead of the production
+    // Server Components render placeholder.
+    console.error("denyAccountRequest failed", { requestId, err });
+    throw new Error(err?.message || "Failed to deny account request.");
   }
-
-  const request = await db.query.accountRequests.findFirst({
-    where: eq(accountRequests.id, requestId),
-  });
-
-  if (!request) {
-    throw new Error("Account request not found.");
-  }
-
-  if (request.status !== "PENDING") {
-    throw new Error("Only pending requests can be denied.");
-  }
-
-  await db
-    .update(accountRequests)
-    .set({ status: "DENIED", processedAt: new Date() })
-    .where(eq(accountRequests.id, requestId));
-
-  revalidatePath("/admin/account-requests"); // Revalidate the admin account requests page
-
-  return { success: true, message: "Account request denied." };
 }
 
 interface NewInvoiceItem {
