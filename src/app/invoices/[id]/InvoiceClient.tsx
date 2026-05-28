@@ -100,6 +100,33 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
           <p className="text-sm font-semibold text-slate-500">Total Cost</p>
           <p className="text-lg font-medium text-slate-900">${invoice.totalCost.toFixed(2)}</p>
         </div>
+        {/* Manager/admin-only audit dates */}
+        {isAdminOrManager && (
+          <>
+            <div>
+              <p className="text-sm font-semibold text-slate-500">Submitted On</p>
+              <p className="text-lg font-medium text-slate-900">
+                {invoice.submittedDate
+                  ? new Date(invoice.submittedDate).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })
+                  : <span className="text-slate-400 italic text-base font-normal">Not yet submitted</span>}
+              </p>
+            </div>
+            {invoice.approvedDate && (
+              <div>
+                <p className="text-sm font-semibold text-slate-500">Approved On</p>
+                <p className="text-lg font-medium text-slate-900">
+                  {new Date(invoice.approvedDate).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </p>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <div className="mb-8">
@@ -109,6 +136,7 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
             <thead>
               <tr className="bg-slate-50 text-slate-600 border-y border-slate-200">
                 <th className="py-3 px-4 font-semibold text-sm">Date</th>
+                <th className="py-3 px-4 font-semibold text-sm">Category</th>
                 <th className="py-3 px-4 font-semibold text-sm">Description</th>
                 <th className="py-3 px-4 font-semibold text-sm w-32">Hours</th>
                 <th className="py-3 px-4 font-semibold text-sm w-32">Rate</th>
@@ -119,6 +147,15 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
               {invoice.items.map((item: any) => (
                 <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                   <td className="py-3 px-4 text-sm text-slate-900">{new Date(item.date).toLocaleDateString()}</td>
+                  <td className="py-3 px-4 text-sm">
+                    {item.category?.name ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                        {item.category.name}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 italic text-xs">Uncategorized</span>
+                    )}
+                  </td>
                   <td className="py-3 px-4 text-sm text-slate-900">{item.description}</td>
                   <td className="py-3 px-4 text-sm text-slate-600">{item.hours}</td>
                   <td className="py-3 px-4 text-sm text-slate-600">${item.rate.toFixed(2)}</td>
@@ -128,7 +165,7 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-slate-200">
-                <td colSpan={4} className="py-4 px-4 text-right font-bold text-slate-700">Grand Total:</td>
+                <td colSpan={5} className="py-4 px-4 text-right font-bold text-slate-700">Grand Total:</td>
                 <td className="py-4 px-4 text-right font-bold text-lg text-nreuv-primary">${invoice.totalCost.toFixed(2)}</td>
               </tr>
             </tfoot>

@@ -17,7 +17,11 @@ export default async function InvoiceDetailsPage({ params }: { params: { id: str
   const invoice = await db.query.invoices.findFirst({
     where: eq(invoices.id, id),
     with: {
-      items: true,
+      items: {
+        with: {
+          category: true,
+        },
+      },
       user: true,
     },
   });
