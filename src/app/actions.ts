@@ -363,6 +363,9 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
     if ((item.description?.trim().length ?? 0) < 10) {
       throw new Error("Each item's description must be at least 10 characters.");
     }
+    if (!item.categoryId) {
+      throw new Error("Each item must have a category assigned.");
+    }
   }
 
   const userId = session.user.id;
@@ -447,6 +450,9 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
   for (const item of invoiceData.items) {
     if ((item.description?.trim().length ?? 0) < 10) {
       throw new Error("Each item's description must be at least 10 characters.");
+    }
+    if (!item.categoryId) {
+      throw new Error("Each item must have a category assigned.");
     }
   }
 

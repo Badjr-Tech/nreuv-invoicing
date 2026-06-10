@@ -100,7 +100,13 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
       if (shortDescIdx !== -1) {
         throw new Error(`Item at row ${shortDescIdx + 1}: description must be at least 10 characters.`);
       }
-      const validItems = items.filter((item: any) => item.description.trim().length >= 10 && item.hours > 0 && item.date);
+      const missingCatIdx = items.findIndex(
+        (item: any) => item.description.trim().length >= 10 && item.hours > 0 && item.date && !item.categoryId
+      );
+      if (missingCatIdx !== -1) {
+        throw new Error(`Item at row ${missingCatIdx + 1}: please select a category.`);
+      }
+      const validItems = items.filter((item: any) => item.description.trim().length >= 10 && item.hours > 0 && item.date && item.categoryId);
       if (validItems.length === 0) {
         throw new Error("Please add at least one valid item with date, description, and hours.");
       }
@@ -153,7 +159,13 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
       if (shortDescIdx !== -1) {
         throw new Error(`Item at row ${shortDescIdx + 1}: description must be at least 10 characters.`);
       }
-      const validItems = items.filter((item: any) => item.description.trim().length >= 10 && item.hours > 0 && item.date);
+      const missingCatIdx = items.findIndex(
+        (item: any) => item.description.trim().length >= 10 && item.hours > 0 && item.date && !item.categoryId
+      );
+      if (missingCatIdx !== -1) {
+        throw new Error(`Item at row ${missingCatIdx + 1}: please select a category.`);
+      }
+      const validItems = items.filter((item: any) => item.description.trim().length >= 10 && item.hours > 0 && item.date && item.categoryId);
       if (validItems.length === 0) {
         throw new Error("Please add at least one valid item with date, description, and hours.");
       }
@@ -327,15 +339,21 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
                 <div className="w-1/3 md:w-1/6">
                   <label className="block text-xs font-medium text-slate-500 mb-1">Category</label>
                   <select
+                    required
                     value={item.categoryId}
                     onChange={(e) => handleItemChange(index, 'categoryId', e.target.value)}
-                    className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none bg-white"
+                    className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none bg-white ${
+                      !item.categoryId ? 'border-red-300' : 'border-slate-300'
+                    }`}
                   >
-                    <option value="">None</option>
+                    <option value="" disabled>Select category…</option>
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
                   </select>
+                  {!item.categoryId && (
+                    <p className="text-red-500 text-xs mt-1">Category required.</p>
+                  )}
                 </div>
 
                 <div className="w-1/4 md:w-1/6">
