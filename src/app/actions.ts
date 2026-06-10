@@ -357,6 +357,14 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
     throw new Error("Missing required invoice data.");
   }
 
+  // Every line item's description must be substantive — server-side guard
+  // matching the client-side rule so the UI can't be bypassed.
+  for (const item of invoiceData.items) {
+    if ((item.description?.trim().length ?? 0) < 10) {
+      throw new Error("Each item's description must be at least 10 characters.");
+    }
+  }
+
   const userId = session.user.id;
   const userRecord = await db.query.users.findFirst({
     where: eq(users.id, userId),
@@ -434,6 +442,12 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
   // Basic validation
   if (!invoiceData.id || !invoiceData.invoiceDate || !invoiceData.items.length) {
     throw new Error("Missing required invoice data for update.");
+  }
+
+  for (const item of invoiceData.items) {
+    if ((item.description?.trim().length ?? 0) < 10) {
+      throw new Error("Each item's description must be at least 10 characters.");
+    }
   }
 
   const userId = session.user.id;
@@ -688,6 +702,38 @@ export async function deferInvoice(invoiceId: string) {
 
   revalidatePath("/");
   revalidatePath(`/invoices/${invoiceId}`);
+}
+
+// Admin-only hard delete. Removes the invoice and its line items.
+export async function deleteInvoice(invoiceId: string) {
+  const session = await auth();
+
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can delete invoices.");
+  }
+
+  const invoiceRecord = await db.query.invoices.findFirst({
+    where: eq(invoices.id, invoiceId),
+  });
+
+  if (!invoiceRecord) {
+    throw new Error("Invoice not found.");
+  }
+
+  // No ON DELETE CASCADE on invoice_item → invoice, so delete items first.
+  // The neon-http driver doesn't support transactions, so we do this
+  // sequentially and log clearly if the second step fails.
+  try {
+    await db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, invoiceId));
+    await db.delete(invoices).where(eq(invoices.id, invoiceId));
+  } catch (err) {
+    console.error("deleteInvoice failed", { invoiceId, err });
+    throw new Error("Failed to delete invoice. Please try again.");
+  }
+
+  revalidatePath("/");
+  revalidatePath("/invoices");
+  revalidatePath("/my-invoices");
 }
 
 export async function generateInvoicePdf(invoiceId: string) {

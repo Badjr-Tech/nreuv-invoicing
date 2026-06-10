@@ -94,7 +94,13 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
     setError(null);
 
     try {
-      const validItems = items.filter((item: any) => item.description.trim() !== '' && item.hours > 0 && item.date);
+      const shortDescIdx = items.findIndex(
+        (item: any) => item.description.trim().length > 0 && item.description.trim().length < 10
+      );
+      if (shortDescIdx !== -1) {
+        throw new Error(`Item at row ${shortDescIdx + 1}: description must be at least 10 characters.`);
+      }
+      const validItems = items.filter((item: any) => item.description.trim().length >= 10 && item.hours > 0 && item.date);
       if (validItems.length === 0) {
         throw new Error("Please add at least one valid item with date, description, and hours.");
       }
@@ -141,7 +147,13 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
     setError(null);
 
     try {
-      const validItems = items.filter((item: any) => item.description.trim() !== '' && item.hours > 0 && item.date);
+      const shortDescIdx = items.findIndex(
+        (item: any) => item.description.trim().length > 0 && item.description.trim().length < 10
+      );
+      if (shortDescIdx !== -1) {
+        throw new Error(`Item at row ${shortDescIdx + 1}: description must be at least 10 characters.`);
+      }
+      const validItems = items.filter((item: any) => item.description.trim().length >= 10 && item.hours > 0 && item.date);
       if (validItems.length === 0) {
         throw new Error("Please add at least one valid item with date, description, and hours.");
       }
@@ -295,11 +307,21 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
                   <input
                     type="text"
                     required
-                    placeholder="Work description..."
+                    minLength={10}
+                    placeholder="Work description (min 10 chars)…"
                     value={item.description}
                     onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                    className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none"
+                    className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none ${
+                      item.description.trim().length > 0 && item.description.trim().length < 10
+                        ? 'border-red-300'
+                        : 'border-slate-300'
+                    }`}
                   />
+                  {item.description.trim().length > 0 && item.description.trim().length < 10 && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {10 - item.description.trim().length} more character{10 - item.description.trim().length === 1 ? '' : 's'} needed.
+                    </p>
+                  )}
                 </div>
                 
                 <div className="w-1/3 md:w-1/6">

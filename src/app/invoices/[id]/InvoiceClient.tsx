@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateInvoiceStatus, deferInvoice } from '@/app/actions';
+import { updateInvoiceStatus, deferInvoice, deleteInvoice } from '@/app/actions';
 import Link from 'next/link';
 import DownloadPdfButton from '@/components/dashboard/DownloadPdfButton';
 import { toCalendarDate } from '@/lib/date-utils';
@@ -43,6 +43,21 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
       router.refresh();
     } catch (err: any) {
       setError(err.message || "Failed to defer invoice.");
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    const userLabel = invoice.user?.name || invoice.user?.email || "this user";
+    const confirmMsg = `Permanently delete this invoice for ${userLabel}?\n\nThis removes the invoice and all its line items. This cannot be undone.`;
+    if (!confirm(confirmMsg)) return;
+    setIsUpdating(true);
+    setError(null);
+    try {
+      await deleteInvoice(invoice.id);
+      router.push("/invoices");
+    } catch (err: any) {
+      setError(err.message || "Failed to delete invoice.");
       setIsUpdating(false);
     }
   };
@@ -174,6 +189,16 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
       </div>
 
       <div className="flex flex-wrap justify-end gap-3 pt-4 border-t border-slate-100">
+        {/* Admin can permanently delete any invoice */}
+        {currentUserRole === "ADMIN" && (
+          <button
+            onClick={handleDelete}
+            disabled={isUpdating}
+            className="mr-auto px-6 py-2.5 bg-white hover:bg-red-50 text-red-700 border border-red-300 font-medium rounded-lg transition-colors disabled:opacity-50"
+          >
+            {isUpdating ? "Deleting..." : "Delete Invoice"}
+          </button>
+        )}
         {/* Only Owner can edit, and only if DRAFT */}
         {isOwner && invoice.status === "DRAFT" && (
           <Link
