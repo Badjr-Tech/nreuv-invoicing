@@ -606,6 +606,23 @@ export async function updateInvoiceStatus(invoiceId: string, newStatus: "PENDING
     }
   }
 
+  // Block any forward transition (submit/pre-approve/approve) if a line
+  // item still has no category — handles legacy invoices created before
+  // the category rule was added.
+  if (newStatus === "PENDING_MANAGER" || newStatus === "PENDING_ADMIN" || newStatus === "APPROVED") {
+    const items = await db
+      .select({ id: invoiceItems.id, categoryId: invoiceItems.categoryId })
+      .from(invoiceItems)
+      .where(eq(invoiceItems.invoiceId, invoiceId));
+
+    const uncategorizedCount = items.filter((it) => !it.categoryId).length;
+    if (uncategorizedCount > 0) {
+      throw new Error(
+        `Cannot proceed: ${uncategorizedCount} line item${uncategorizedCount === 1 ? "" : "s"} ${uncategorizedCount === 1 ? "is" : "are"} missing a category. Open the invoice in edit mode and assign one to every row.`,
+      );
+    }
+  }
+
   // Define allowed status transitions
   const allowedTransitions: Record<string, string[]> = {
     DRAFT: ["PENDING_MANAGER", "PENDING_ADMIN"], // PENDING_ADMIN if no manager
