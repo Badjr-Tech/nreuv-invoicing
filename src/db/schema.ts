@@ -75,6 +75,7 @@ export const invoices = pgTable("invoice", {
   totalCost: real("total_cost").default(0).notNull(),
   submittedDate: timestamp("submitted_date", { mode: "date" }),
   approvedDate: timestamp("approved_date", { mode: "date" }),
+  archivedAt: timestamp("archived_at", { mode: "date" }),
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id),

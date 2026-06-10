@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateInvoiceStatus, deferInvoice, deleteInvoice } from '@/app/actions';
+import { updateInvoiceStatus, deferInvoice, deleteInvoice, archiveInvoice, unarchiveInvoice } from '@/app/actions';
 import Link from 'next/link';
 import DownloadPdfButton from '@/components/dashboard/DownloadPdfButton';
 import { toCalendarDate } from '@/lib/date-utils';
@@ -62,6 +62,22 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
     }
   };
 
+  const handleArchiveToggle = async () => {
+    setIsUpdating(true);
+    setError(null);
+    try {
+      if (invoice.archivedAt) {
+        await unarchiveInvoice(invoice.id);
+      } else {
+        await archiveInvoice(invoice.id);
+      }
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message || "Failed to update archive state.");
+      setIsUpdating(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto bg-white shadow-sm border border-slate-100 rounded-xl p-8">
       <div className="flex justify-between items-start mb-6">
@@ -69,6 +85,12 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
           <h1 className="text-2xl font-bold text-nreuv-black">
             Invoice {invoice.invoiceNumber ? `#${invoice.invoiceNumber.toString().padStart(2, '0')}` : 'Details'}
           </h1>
+          {invoice.archivedAt && (
+            <p className="text-sm text-slate-700 mt-2 p-2 bg-slate-100 border border-slate-300 rounded-md">
+              <strong>Archived</strong> on {new Date(invoice.archivedAt).toLocaleDateString()}.
+              Hidden from default list views.
+            </p>
+          )}
           {invoice.status === "DRAFT" && (
             <p className="text-sm text-yellow-700 mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
               This is a draft invoice. Please review it carefully. When ready, click "Submit Invoice" below to send it for approval.
@@ -189,15 +211,28 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
       </div>
 
       <div className="flex flex-wrap justify-end gap-3 pt-4 border-t border-slate-100">
-        {/* Admin can permanently delete any invoice */}
+        {/* Admin: archive (reversible) and delete (destructive). Grouped on the left. */}
         {currentUserRole === "ADMIN" && (
-          <button
-            onClick={handleDelete}
-            disabled={isUpdating}
-            className="mr-auto px-6 py-2.5 bg-white hover:bg-red-50 text-red-700 border border-red-300 font-medium rounded-lg transition-colors disabled:opacity-50"
-          >
-            {isUpdating ? "Deleting..." : "Delete Invoice"}
-          </button>
+          <div className="mr-auto flex gap-2">
+            <button
+              onClick={handleArchiveToggle}
+              disabled={isUpdating}
+              className="px-6 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-medium rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isUpdating
+                ? "..."
+                : invoice.archivedAt
+                  ? "Unarchive"
+                  : "Archive"}
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={isUpdating}
+              className="px-6 py-2.5 bg-white hover:bg-red-50 text-red-700 border border-red-300 font-medium rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isUpdating ? "..." : "Delete"}
+            </button>
+          </div>
         )}
         {/* Only Owner can edit, and only if DRAFT */}
         {isOwner && invoice.status === "DRAFT" && (

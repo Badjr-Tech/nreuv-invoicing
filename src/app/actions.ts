@@ -704,6 +704,51 @@ export async function deferInvoice(invoiceId: string) {
   revalidatePath(`/invoices/${invoiceId}`);
 }
 
+// Admin-only soft-archive. Sets archivedAt timestamp; reversible via
+// unarchiveInvoice. Archived invoices are hidden from default list views.
+export async function archiveInvoice(invoiceId: string) {
+  const session = await auth();
+
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can archive invoices.");
+  }
+
+  const [existing] = await db
+    .select({ id: invoices.id, archivedAt: invoices.archivedAt })
+    .from(invoices)
+    .where(eq(invoices.id, invoiceId))
+    .limit(1);
+
+  if (!existing) {
+    throw new Error("Invoice not found.");
+  }
+  if (existing.archivedAt) {
+    return { success: true, message: "Invoice was already archived." };
+  }
+
+  await db.update(invoices).set({ archivedAt: new Date() }).where(eq(invoices.id, invoiceId));
+
+  revalidatePath("/");
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${invoiceId}`);
+  return { success: true, message: "Invoice archived." };
+}
+
+export async function unarchiveInvoice(invoiceId: string) {
+  const session = await auth();
+
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can unarchive invoices.");
+  }
+
+  await db.update(invoices).set({ archivedAt: null }).where(eq(invoices.id, invoiceId));
+
+  revalidatePath("/");
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${invoiceId}`);
+  return { success: true, message: "Invoice unarchived." };
+}
+
 // Admin-only hard delete. Removes the invoice and its line items.
 export async function deleteInvoice(invoiceId: string) {
   const session = await auth();
@@ -747,7 +792,11 @@ export async function generateInvoicePdf(invoiceId: string) {
     where: eq(invoices.id, invoiceId),
     with: {
       user: true,
-      items: true,
+      items: {
+        with: {
+          category: true,
+        },
+      },
     },
   });
 
@@ -760,7 +809,7 @@ export async function generateInvoicePdf(invoiceId: string) {
     throw new Error("Invoice data is incomplete for PDF generation.");
   }
 
-  const pdfBuffer = await renderToBuffer(InvoicePdfDocument({ invoice: invoiceRecord as any })); 
+  const pdfBuffer = await renderToBuffer(InvoicePdfDocument({ invoice: invoiceRecord as any }));
 
   return pdfBuffer.toString('base64');
 }

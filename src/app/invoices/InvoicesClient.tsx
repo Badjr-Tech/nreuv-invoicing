@@ -10,9 +10,10 @@ interface InvoicesClientProps {
   userInvoices: any[];
   allUsers: any[];
   currentUserRole: string;
+  showArchived?: boolean;
 }
 
-export default function InvoicesClient({ userInvoices, allUsers, currentUserRole }: InvoicesClientProps) {
+export default function InvoicesClient({ userInvoices, allUsers, currentUserRole, showArchived = false }: InvoicesClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -89,6 +90,17 @@ export default function InvoicesClient({ userInvoices, allUsers, currentUserRole
               />
             </div>
           </div>
+          {currentUserRole === "ADMIN" && (
+            <label className="flex items-center gap-2 mt-4 text-sm text-slate-600 select-none cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(e) => handleFilterChange("showArchived", e.target.checked ? "1" : "")}
+                className="h-4 w-4 rounded border-slate-300 text-nreuv-primary focus:ring-nreuv-accent"
+              />
+              Show archived invoices
+            </label>
+          )}
         </div>
       )}
 
@@ -127,17 +139,24 @@ export default function InvoicesClient({ userInvoices, allUsers, currentUserRole
                       {invoice.totalHours}
                     </td>
                     <td className="py-3 px-4 text-sm">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          invoice.status === "DRAFT" ? "bg-yellow-100 text-yellow-800" :
-                          invoice.status === "PENDING_MANAGER" ? "bg-purple-100 text-purple-800" :
-                          invoice.status === "PENDING_ADMIN" ? "bg-blue-100 text-blue-800" :
-                          invoice.status === "SENT" ? "bg-blue-100 text-blue-800" :
-                          "bg-green-100 text-green-800"
-                        }`}
-                      >
-                        {invoice.status}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            invoice.status === "DRAFT" ? "bg-yellow-100 text-yellow-800" :
+                            invoice.status === "PENDING_MANAGER" ? "bg-purple-100 text-purple-800" :
+                            invoice.status === "PENDING_ADMIN" ? "bg-blue-100 text-blue-800" :
+                            invoice.status === "SENT" ? "bg-blue-100 text-blue-800" :
+                            "bg-green-100 text-green-800"
+                          }`}
+                        >
+                          {invoice.status}
+                        </span>
+                        {invoice.archivedAt && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-slate-200 text-slate-700">
+                            Archived
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-sm text-slate-900 font-medium text-right">
                       ${invoice.totalCost.toFixed(2)}
