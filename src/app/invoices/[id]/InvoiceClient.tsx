@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateInvoiceStatus, deferInvoice, deleteInvoice, archiveInvoice, unarchiveInvoice } from '@/app/actions';
+import { updateInvoiceStatus, deferInvoice, deleteInvoice, archiveInvoice, unarchiveInvoice, requestInvoiceChanges } from '@/app/actions';
 import Link from 'next/link';
 import DownloadPdfButton from '@/components/dashboard/DownloadPdfButton';
 import { toCalendarDate } from '@/lib/date-utils';
@@ -58,6 +58,29 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
       router.push("/invoices");
     } catch (err: any) {
       setError(err.message || "Failed to delete invoice.");
+      setIsUpdating(false);
+    }
+  };
+
+  const [showIssueModal, setShowIssueModal] = useState(false);
+  const [issueMessage, setIssueMessage] = useState('');
+  const [issueResetDraft, setIssueResetDraft] = useState(true);
+
+  const handleSubmitIssue = async () => {
+    if (issueMessage.trim().length < 10) {
+      setError("Please describe the issue in at least 10 characters.");
+      return;
+    }
+    setIsUpdating(true);
+    setError(null);
+    try {
+      await requestInvoiceChanges(invoice.id, issueMessage, issueResetDraft);
+      setShowIssueModal(false);
+      setIssueMessage('');
+      router.refresh();
+      alert("Changes requested. The contractor has been emailed and notified.");
+    } catch (err: any) {
+      setError(err.message || "Failed to send issue notice.");
       setIsUpdating(false);
     }
   };
@@ -266,6 +289,20 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
           </button>
         )}
 
+        {/* Admin / Payroll Manager can flag issues on any pending invoice. */}
+        {(currentUserRole === "ADMIN" ||
+          (currentUserRole === "PAYROLL_MANAGER" &&
+            invoice.user?.managerId === currentUserId)) &&
+          (invoice.status === "PENDING_ADMIN" || invoice.status === "PENDING_MANAGER") && (
+            <button
+              onClick={() => { setIssueMessage(''); setShowIssueModal(true); }}
+              disabled={isUpdating}
+              className="px-6 py-2.5 bg-white hover:bg-orange-50 text-orange-700 border border-orange-300 font-medium rounded-lg transition-colors disabled:opacity-50"
+            >
+              Request Changes
+            </button>
+          )}
+
         {/* Admin can approve PENDING_ADMIN invoices */}
         {currentUserRole === "ADMIN" && (invoice.status === "PENDING_ADMIN" || invoice.status === "PENDING_MANAGER") && (
           <>
@@ -286,6 +323,69 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
           </>
         )}
       </div>
+
+      {showIssueModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full">
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="font-semibold text-slate-800">Request changes on this invoice</h3>
+              <button
+                onClick={() => setShowIssueModal(false)}
+                className="text-slate-400 hover:text-slate-700 text-xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-sm text-slate-600">
+                {invoice.user?.name || invoice.user?.email || "The contractor"} will receive an
+                email with your notes verbatim plus a link back to this invoice.
+              </p>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">
+                  What needs to be fixed?
+                </label>
+                <textarea
+                  value={issueMessage}
+                  onChange={(e) => setIssueMessage(e.target.value)}
+                  rows={5}
+                  placeholder="E.g. Row 3's category is wrong; please re-categorize as Marketing. Row 5's hours look high for a single day — confirm or adjust."
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-nreuv-accent"
+                />
+                {issueMessage.trim().length > 0 && issueMessage.trim().length < 10 && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {10 - issueMessage.trim().length} more character{10 - issueMessage.trim().length === 1 ? '' : 's'} needed.
+                  </p>
+                )}
+              </div>
+              <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={issueResetDraft}
+                  onChange={(e) => setIssueResetDraft(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-nreuv-primary focus:ring-nreuv-accent"
+                />
+                <span>Send invoice back to <strong>Draft</strong> so the contractor can edit it.</span>
+              </label>
+            </div>
+            <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+              <button
+                onClick={() => setShowIssueModal(false)}
+                className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-md font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitIssue}
+                disabled={isUpdating || issueMessage.trim().length < 10}
+                className="px-4 py-2 text-sm bg-orange-600 text-white rounded-md hover:opacity-90 font-semibold disabled:opacity-50"
+              >
+                {isUpdating ? "Sending…" : "Send to Contractor"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

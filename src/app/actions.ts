@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import InvoicePdfDocument from "@/lib/pdf-generator";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { addDays, format } from "date-fns";
-import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail } from "@/lib/email";
+import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail, sendInvoiceIssueEmail } from "@/lib/email";
 import { generatePayPeriods } from "@/lib/schedule-utils";
 import { toCalendarDate } from "@/lib/date-utils";
 import { generatePasswordResetToken } from "@/lib/auth-utils";
@@ -725,6 +725,91 @@ export async function deferInvoice(invoiceId: string) {
 
   revalidatePath("/");
   revalidatePath(`/invoices/${invoiceId}`);
+}
+
+// Admin / payroll-manager flow: flag an invoice as needing changes.
+// Emails the contractor with the reviewer's notes, drops an in-app
+// notification, and (optionally) resets the invoice to DRAFT.
+export async function requestInvoiceChanges(
+  invoiceId: string,
+  message: string,
+  sendBackToDraft: boolean,
+) {
+  const session = await auth();
+
+  if (
+    !session?.user?.id ||
+    (session.user.role !== "ADMIN" && session.user.role !== "PAYROLL_MANAGER")
+  ) {
+    throw new Error("Forbidden: Only Admins or Payroll Managers can request changes.");
+  }
+
+  const trimmed = message.trim();
+  if (trimmed.length < 10) {
+    throw new Error("Please describe the issue in at least 10 characters.");
+  }
+
+  const invoice = await db.query.invoices.findFirst({
+    where: eq(invoices.id, invoiceId),
+    with: { user: true },
+  });
+
+  if (!invoice) {
+    throw new Error("Invoice not found.");
+  }
+  if (!invoice.user?.email) {
+    throw new Error("Invoice owner has no email on file.");
+  }
+
+  // Payroll managers can only request changes on invoices for their own reports.
+  if (
+    session.user.role === "PAYROLL_MANAGER" &&
+    invoice.user.managerId !== session.user.id
+  ) {
+    throw new Error("Forbidden: You are not the manager for this employee.");
+  }
+
+  const reviewerName = session.user.name || session.user.email || "A reviewer";
+  const ownerName = invoice.user.name || invoice.user.email || "Contractor";
+  const invoiceNumber = invoice.invoiceNumber || invoice.id.substring(0, 8);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nreuv-invoicing.vercel.app";
+  const invoiceLink = `${appUrl}/invoices/${invoice.id}`;
+
+  // 1) Email
+  try {
+    await sendInvoiceIssueEmail(
+      invoice.user.email,
+      ownerName,
+      reviewerName,
+      invoiceNumber,
+      trimmed,
+      invoiceLink,
+    );
+  } catch (err) {
+    console.error("requestInvoiceChanges: email failed", err);
+    // Don't abort the action — the in-app notification still gives them a paper trail.
+  }
+
+  // 2) In-app notification
+  try {
+    await db.insert(notifications).values({
+      userId: invoice.userId,
+      message: `${reviewerName} requested changes on Invoice #${invoiceNumber}: ${trimmed.length > 140 ? trimmed.substring(0, 137) + "…" : trimmed}`,
+    });
+  } catch (err) {
+    console.error("requestInvoiceChanges: notification failed", err);
+  }
+
+  // 3) Optionally reset to DRAFT so the contractor can edit and re-submit.
+  if (sendBackToDraft) {
+    await db.update(invoices).set({ status: "DRAFT" }).where(eq(invoices.id, invoiceId));
+  }
+
+  revalidatePath("/");
+  revalidatePath(`/invoices/${invoiceId}`);
+  revalidatePath("/notifications");
+
+  return { success: true };
 }
 
 // Admin-only soft-archive. Sets archivedAt timestamp; reversible via
