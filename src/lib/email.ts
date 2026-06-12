@@ -1,7 +1,7 @@
 import { BrevoClient } from '@getbrevo/brevo';
 
 // ── Setup ──────────────────────────────────────────────────────────────
-const FALLBACK_FROM_EMAIL_ADDRESS = 'noreply@nreuv.com';
+const FALLBACK_FROM_EMAIL_ADDRESS = 'ap@nreuv.com';
 const FROM_NAME = 'NREUV Invoicing';
 
 if (!process.env.BREVO_API_KEY) {
@@ -324,7 +324,6 @@ export const sendAdminLateSubmissionEmail = async (
       <p style="margin:0 0 18px 0;">
         <span style="color:#777;">User:</span> <strong>${escapeHtml(userName)}</strong><br>
         <span style="color:#777;">Email:</span> ${escapeHtml(userEmail)}<br>
-        <span style="color:#777;">Invoice #:</span> ${escapeHtml(String(invoiceNumber))}<br>
         <span style="color:#777;">Amount:</span> <strong>${amountFormatted}</strong><br>
         <span style="color:#777;">Submitted (LATE):</span> ${escapeHtml(submittedFormatted)}
       </p>
