@@ -10,7 +10,7 @@ import InvoicePdfDocument from "@/lib/pdf-generator";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { addDays, format } from "date-fns";
 import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail, sendInvoiceIssueEmail } from "@/lib/email";
-import { generatePayPeriods } from "@/lib/schedule-utils";
+import { generatePayPeriods, extendDeadlineThroughWeekend } from "@/lib/schedule-utils";
 import { toCalendarDate } from "@/lib/date-utils";
 import { generatePasswordResetToken } from "@/lib/auth-utils";
 
@@ -389,7 +389,9 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
   });
 
   const submissionOffsetDays = schedule?.submissionOffsetDays ?? 7; // Default to 7 days before Payment Date
-  const submissionDeadline = addDays(paymentDate, -submissionOffsetDays);
+  const submissionDeadline = extendDeadlineThroughWeekend(
+    addDays(paymentDate, -submissionOffsetDays),
+  );
   
   let totalHours = 0;
   let totalCost = 0;
@@ -497,7 +499,9 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
       });
     
       const submissionOffsetDays = schedule?.submissionOffsetDays ?? 7; // Default to 7 days before Payment Date
-      const submissionDeadline = addDays(paymentDate, -submissionOffsetDays);
+      const submissionDeadline = extendDeadlineThroughWeekend(
+        addDays(paymentDate, -submissionOffsetDays),
+      );
       
       let newTotalHours = 0;
       let newTotalCost = 0;

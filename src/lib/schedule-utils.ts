@@ -1,5 +1,18 @@
 import { addDays, addWeeks, addMonths, differenceInDays } from "date-fns";
 
+/**
+ * Extend a submission deadline through the following weekend.
+ * Fri → Sun, Sat → Sun, otherwise unchanged. The point is that weekend
+ * work done after a Friday deadline still counts in the current pay
+ * period, and the coverage window slides with it.
+ */
+export function extendDeadlineThroughWeekend(date: Date): Date {
+  const day = date.getDay(); // 0 = Sun … 6 = Sat
+  if (day === 5) return addDays(date, 2);
+  if (day === 6) return addDays(date, 1);
+  return date;
+}
+
 export interface GlobalSchedule {
   startDate: Date | null;
   recurrence: "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "CUSTOM";
@@ -28,8 +41,9 @@ export function generatePayPeriods(schedule: GlobalSchedule, count: number = 10)
   const submissionOffsetDays = schedule.submissionOffsetDays ?? 7; // Days before Payment Date for Submission Deadline
 
   for (let i = 0; i < count; i++) {
-    // Calculate Submission Deadline (which is also the Coverage End Date)
-    const submissionDeadline = addDays(currentPaymentDate, -submissionOffsetDays);
+    // Raw deadline then extend through the following weekend (Fri→Sun, Sat→Sun).
+    const rawDeadline = addDays(currentPaymentDate, -submissionOffsetDays);
+    const submissionDeadline = extendDeadlineThroughWeekend(rawDeadline);
     const coverageEndDate = submissionDeadline;
     const coverageStartDate = addDays(coverageEndDate, -(coverageLengthDays - 1));
 
