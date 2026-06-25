@@ -50,13 +50,11 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
       return true;
     }
 
-    const itemDate = new Date(dateString);
-    const pStart = new Date(selectedPayPeriod.periodStart);
-    const pEnd = new Date(selectedPayPeriod.periodEnd);
-    pStart.setHours(0, 0, 0, 0);
-    pEnd.setHours(23, 59, 59, 999);
+    const pStartStr = new Date(selectedPayPeriod.periodStart).toISOString().split('T')[0];
+    const pEndStr = new Date(selectedPayPeriod.periodEnd).toISOString().split('T')[0];
+    const itemStr = String(dateString).slice(0, 10);
 
-    if (itemDate < pStart || itemDate > pEnd) {
+    if (itemStr < pStartStr || itemStr > pEndStr) {
       newErrors[itemIndex] = "Date is not within the selected payroll period.";
       setItemErrors(newErrors);
       return false;
@@ -112,14 +110,14 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
       }
 
       if (selectedPayPeriod) {
-        const pStart = new Date(selectedPayPeriod.periodStart);
-        const pEnd = new Date(selectedPayPeriod.periodEnd);
-        pStart.setHours(0, 0, 0, 0);
-        pEnd.setHours(23, 59, 59, 999);
+        // Compare on YYYY-MM-DD strings — see NewInvoiceClient for the
+        // same rationale (avoids timezone off-by-one at boundary dates).
+        const pStartStr = new Date(selectedPayPeriod.periodStart).toISOString().split('T')[0];
+        const pEndStr = new Date(selectedPayPeriod.periodEnd).toISOString().split('T')[0];
 
         for (let i = 0; i < validItems.length; i++) {
-          const itemDate = new Date(validItems[i].date);
-          if (itemDate < pStart || itemDate > pEnd) {
+          const itemStr = String(validItems[i].date).slice(0, 10);
+          if (itemStr < pStartStr || itemStr > pEndStr) {
             throw new Error(`Item at row ${i + 1} has a date (${validItems[i].date}) outside the allowed billing period (${selectedPayPeriod.label}).`);
           }
         }
@@ -172,14 +170,14 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
 
       // If a pay period is selected, enforce that all items fall within it
       if (selectedPayPeriod) {
-        const pStart = new Date(selectedPayPeriod.periodStart);
-        const pEnd = new Date(selectedPayPeriod.periodEnd);
-        pStart.setHours(0, 0, 0, 0);
-        pEnd.setHours(23, 59, 59, 999);
+        // Compare on YYYY-MM-DD strings — see NewInvoiceClient for the
+        // same rationale (avoids timezone off-by-one at boundary dates).
+        const pStartStr = new Date(selectedPayPeriod.periodStart).toISOString().split('T')[0];
+        const pEndStr = new Date(selectedPayPeriod.periodEnd).toISOString().split('T')[0];
 
         for (let i = 0; i < validItems.length; i++) {
-          const itemDate = new Date(validItems[i].date);
-          if (itemDate < pStart || itemDate > pEnd) {
+          const itemStr = String(validItems[i].date).slice(0, 10);
+          if (itemStr < pStartStr || itemStr > pEndStr) {
             throw new Error(`Item at row ${i + 1} has a date (${validItems[i].date}) outside the allowed billing period (${selectedPayPeriod.label}).`);
           }
         }
