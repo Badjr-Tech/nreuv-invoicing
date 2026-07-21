@@ -1,9 +1,7 @@
 import { BrevoClient } from '@getbrevo/brevo';
 
 // ── Setup ──────────────────────────────────────────────────────────────
-// Case matches the verified sender row in Brevo — their lookup is
-// case-sensitive on the local part, so keep the capital A.
-const FALLBACK_FROM_EMAIL_ADDRESS = 'Admin@nreuv.com';
+const FALLBACK_FROM_EMAIL_ADDRESS = 'invoicing@nreuvadvisors.com';
 const FROM_NAME = 'NREUV Invoicing';
 
 if (!process.env.BREVO_API_KEY) {
