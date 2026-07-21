@@ -1,16 +1,22 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { invoices } from "@/db/schema";
-import { eq, desc, asc } from "drizzle-orm"; // Added asc
-import { format, differenceInDays } from "date-fns";
+import { eq, and, gte, desc, asc } from "drizzle-orm"; // Added asc
+import { format, differenceInDays, subDays } from "date-fns";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import DownloadPdfButton from "./DownloadPdfButton";
 import { toCalendarDate } from "@/lib/date-utils";
 
 async function getUserInvoices(userId: string) {
+  // Dashboard is scoped to the last 30 days of payment dates (and any
+  // future-dated invoices — DRAFTs for upcoming pay cycles stay visible).
+  const cutoff = subDays(new Date(), 30);
   return db.query.invoices.findMany({
-    where: eq(invoices.userId, userId),
+    where: and(
+      eq(invoices.userId, userId),
+      gte(invoices.invoiceDate, cutoff),
+    ),
     with: { items: true },
     orderBy: [desc(invoices.invoiceDate)],
   });

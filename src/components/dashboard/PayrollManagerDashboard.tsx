@@ -29,6 +29,12 @@ async function getAllInvoices(
 
   if (filterInvoiceDateStart) {
     whereClause.push(gte(invoices.invoiceDate, new Date(filterInvoiceDateStart)));
+  } else {
+    // Default: only show the last 30 days on the dashboard (plus any
+    // future-dated invoices). Managers can widen it via the date filter.
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    whereClause.push(gte(invoices.invoiceDate, cutoff));
   }
   if (filterInvoiceDateEnd) {
     whereClause.push(lte(invoices.invoiceDate, new Date(filterInvoiceDateEnd)));
