@@ -388,3 +388,78 @@ export const sendInvoiceIssueEmail = async (
 function name(n: string): string {
   return n ? `Hi <strong>${escapeHtml(n)}</strong> — ` : '';
 }
+
+/**
+ * Sent to the person who submitted the "Request an Account" form.
+ * Confirms the request landed and sets expectations about next steps.
+ */
+export const sendAccountRequestConfirmationEmail = async (
+  to: string,
+  requesterName: string,
+) => {
+  const html = userShell({
+    title: 'Account Request Received',
+    body: `
+      <p style="margin:0 0 16px 0;">
+        ${name(requesterName)}thanks for requesting access to the NREUV invoicing platform.
+      </p>
+      <p style="margin:0 0 16px 0;">
+        We've received your request and forwarded it to our team for review.
+        You'll receive a follow-up email once your account is approved —
+        it'll include a secure link to set your password.
+      </p>
+      <p style="margin:0;">
+        Approvals typically happen within one business day. If you don't hear back
+        within that window, reply to this email and we'll look into it.
+      </p>
+    `,
+  });
+
+  await sendBrevoMail({
+    to,
+    subject: 'Account request received — NREUV Invoicing',
+    html,
+    label: 'account request confirmation',
+  });
+};
+
+/**
+ * Sent to every admin when a new account request comes in.
+ */
+export const sendAdminAccountRequestEmail = async (
+  to: string,
+  requesterName: string,
+  requesterEmail: string,
+  requesterMessage: string,
+  adminLink: string,
+) => {
+  const messageHtml = requesterMessage
+    ? escapeHtml(requesterMessage).replace(/\n/g, '<br>')
+    : '<em>(no message provided)</em>';
+
+  const html = adminShell({
+    title: 'New Account Request',
+    body: `
+      <p style="margin:0 0 16px 0;">Someone has requested access to the platform.</p>
+      <p style="margin:0 0 18px 0;">
+        <span style="color:#777;">Name:</span> <strong>${escapeHtml(requesterName)}</strong><br>
+        <span style="color:#777;">Email:</span> ${escapeHtml(requesterEmail)}
+      </p>
+      <div style="margin:14px 0; padding:14px 16px; background:#f6f6f6; border-left:4px solid #2b2b2b; border-radius:3px; color:#222;">
+        <div style="font-size:12px; font-weight:bold; color:#777; letter-spacing:0.4px; text-transform:uppercase; margin-bottom:6px;">
+          Their message
+        </div>
+        <div style="font-size:15px; line-height:22px;">${messageHtml}</div>
+      </div>
+      <p style="margin:0;">Log in to approve or deny the request.</p>
+    `,
+    cta: { label: 'Review Request', href: adminLink },
+  });
+
+  await sendBrevoMail({
+    to,
+    subject: `New account request from ${requesterName}`,
+    html,
+    label: 'admin account request',
+  });
+};

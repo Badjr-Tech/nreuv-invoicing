@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import InvoicePdfDocument from "@/lib/pdf-generator";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { addDays, format } from "date-fns";
-import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail, sendInvoiceIssueEmail } from "@/lib/email";
+import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail, sendInvoiceIssueEmail, sendAccountRequestConfirmationEmail, sendAdminAccountRequestEmail } from "@/lib/email";
 import { generatePayPeriods, extendDeadlineThroughWeekend } from "@/lib/schedule-utils";
 import { toCalendarDate } from "@/lib/date-utils";
 import { generatePasswordResetToken } from "@/lib/auth-utils";
@@ -205,6 +205,37 @@ export async function requestAccount(data: AccountRequestData) {
     email: data.email,
     message: data.message,
   });
+
+  // Fire both notifications — never let an email failure break the request.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nreuv-invoicing.vercel.app";
+  const adminLink = `${appUrl}/admin/account-requests`;
+
+  try {
+    await sendAccountRequestConfirmationEmail(data.email, data.name);
+  } catch (err) {
+    console.error("requestAccount: confirmation email failed", err);
+  }
+
+  try {
+    const admins = await db.query.users.findMany({
+      where: eq(users.role, "ADMIN"),
+    });
+    await Promise.all(
+      admins
+        .filter((a) => !!a.email)
+        .map((a) =>
+          sendAdminAccountRequestEmail(
+            a.email!,
+            data.name,
+            data.email,
+            data.message,
+            adminLink,
+          ).catch((err) => console.error("requestAccount: admin email failed", { admin: a.email, err })),
+        ),
+    );
+  } catch (err) {
+    console.error("requestAccount: admin fanout failed", err);
+  }
 
   revalidatePath("/admin/account-requests"); // Revalidate admin page for requests
 
