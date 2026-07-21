@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { approveAccountRequest, denyAccountRequest } from "@/app/actions"; // Actions to be created
+import { approveAccountRequest, denyAccountRequest, deleteAccountRequest } from "@/app/actions"; // Actions to be created
 import { useRouter } from "next/navigation";
 
 interface AccountRequest {
@@ -42,6 +42,17 @@ export default function AdminAccountRequestsClient({ initialRequests }: AdminAcc
       router.refresh(); // Refresh data from server
     } catch (error: any) {
       alert(`Error denying request: ${error.message}`);
+    }
+  };
+
+  const handleDelete = async (requestId: string, requesterName: string) => {
+    if (!confirm(`Permanently delete the request from ${requesterName}? This cannot be undone.`)) return;
+    try {
+      await deleteAccountRequest(requestId);
+      setRequests(requests.filter(req => req.id !== requestId));
+      router.refresh();
+    } catch (error: any) {
+      alert(`Error deleting request: ${error.message}`);
     }
   };
 
@@ -97,9 +108,15 @@ export default function AdminAccountRequestsClient({ initialRequests }: AdminAcc
                     </button>
                     <button
                       onClick={() => handleDeny(request.id)}
-                      className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
+                      className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs mr-2"
                     >
                       Deny
+                    </button>
+                    <button
+                      onClick={() => handleDelete(request.id, request.name)}
+                      className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold py-1 px-2 rounded text-xs"
+                    >
+                      Delete
                     </button>
                   </td>
                 </tr>

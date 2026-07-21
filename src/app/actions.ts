@@ -354,6 +354,31 @@ export async function denyAccountRequest(requestId: string) {
   }
 }
 
+// Hard-delete an account request. Removes the row entirely — use for
+// cleanup after deny, or for spam requests.
+export async function deleteAccountRequest(requestId: string) {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id || session.user.role !== "ADMIN") {
+      throw new Error("Unauthorized or Forbidden: Only Admin can delete account requests.");
+    }
+
+    await db.delete(accountRequests).where(eq(accountRequests.id, requestId));
+
+    try {
+      revalidatePath("/admin/account-requests");
+    } catch (revalErr) {
+      console.error("deleteAccountRequest: revalidatePath failed", revalErr);
+    }
+
+    return { success: true, message: "Account request deleted." };
+  } catch (err: any) {
+    console.error("deleteAccountRequest failed", { requestId, err });
+    throw new Error(err?.message || "Failed to delete account request.");
+  }
+}
+
 interface NewInvoiceItem {
   date: Date;
   description: string;

@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { accountRequests, users } from "@/db/schema";
+import { accountRequests } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import AdminAccountRequestsClient from "./AdminAccountRequestsClient";
 
@@ -11,8 +12,11 @@ async function getPendingAccountRequests() {
     redirect("/auth/signin"); // Admins only
   }
 
-  const requests = await db.query.accountRequests.findMany();
-  return requests;
+  // Only PENDING requests — denied/approved fall off the list automatically.
+  return db.query.accountRequests.findMany({
+    where: eq(accountRequests.status, "PENDING"),
+    orderBy: [desc(accountRequests.createdAt)],
+  });
 }
 
 export default async function AdminAccountRequestsPage() {
