@@ -1,16 +1,16 @@
 import { addDays, addWeeks, addMonths, differenceInDays } from "date-fns";
 
 /**
- * Extend a submission deadline through the following weekend.
- * Fri → Sun, Sat → Sun, otherwise unchanged. The point is that weekend
- * work done after a Friday deadline still counts in the current pay
- * period, and the coverage window slides with it.
+ * Business rule: the invoice submission deadline is the Monday of the
+ * same week as the payment date (i.e. the Monday before a Friday payroll).
+ *
+ * If the payment date IS a Monday, we return that same day (Monday of its
+ * own week). If it's Sunday, we walk back to the previous Monday.
  */
-export function extendDeadlineThroughWeekend(date: Date): Date {
-  const day = date.getDay(); // 0 = Sun … 6 = Sat
-  if (day === 5) return addDays(date, 2);
-  if (day === 6) return addDays(date, 1);
-  return date;
+export function mondayBeforePayment(paymentDate: Date): Date {
+  const day = paymentDate.getDay(); // 0 = Sun, 1 = Mon … 6 = Sat
+  const daysBack = day === 0 ? 6 : day - 1;
+  return addDays(paymentDate, -daysBack);
 }
 
 export interface GlobalSchedule {
@@ -38,12 +38,12 @@ export function generatePayPeriods(schedule: GlobalSchedule, count: number = 10)
   let currentPaymentDate = new Date(schedule.startDate); // startDate is now the first Payment Date
 
   const coverageLengthDays = schedule.billingPeriodLengthDays || 14; // This is the length of the coverage period
-  const submissionOffsetDays = schedule.submissionOffsetDays ?? 7; // Days before Payment Date for Submission Deadline
 
   for (let i = 0; i < count; i++) {
-    // Raw deadline then extend through the following weekend (Fri→Sun, Sat→Sun).
-    const rawDeadline = addDays(currentPaymentDate, -submissionOffsetDays);
-    const submissionDeadline = extendDeadlineThroughWeekend(rawDeadline);
+    // Deadline = Monday of the payroll week. submissionOffsetDays is left
+    // in the settings table for backwards compat but no longer drives the
+    // deadline calculation — the "Monday before payroll" rule wins.
+    const submissionDeadline = mondayBeforePayment(currentPaymentDate);
     const coverageEndDate = submissionDeadline;
     const coverageStartDate = addDays(coverageEndDate, -(coverageLengthDays - 1));
 

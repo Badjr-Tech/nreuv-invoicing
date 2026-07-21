@@ -10,7 +10,7 @@ import InvoicePdfDocument from "@/lib/pdf-generator";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { addDays, format } from "date-fns";
 import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail, sendInvoiceIssueEmail, sendAccountRequestConfirmationEmail, sendAdminAccountRequestEmail } from "@/lib/email";
-import { generatePayPeriods, extendDeadlineThroughWeekend } from "@/lib/schedule-utils";
+import { generatePayPeriods, mondayBeforePayment } from "@/lib/schedule-utils";
 import { toCalendarDate } from "@/lib/date-utils";
 import { generatePasswordResetToken } from "@/lib/auth-utils";
 
@@ -419,10 +419,9 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
     orderBy: (settings, { desc }) => [desc(settings.startDate)],
   });
 
-  const submissionOffsetDays = schedule?.submissionOffsetDays ?? 7; // Default to 7 days before Payment Date
-  const submissionDeadline = extendDeadlineThroughWeekend(
-    addDays(paymentDate, -submissionOffsetDays),
-  );
+  // Deadline is the Monday of the payroll week (business rule); the offset
+  // days on invoiceDeadlineSettings is no longer consulted.
+  const submissionDeadline = mondayBeforePayment(paymentDate);
   
   let totalHours = 0;
   let totalCost = 0;
@@ -529,10 +528,8 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
         orderBy: (settings, { desc }) => [desc(settings.startDate)],
       });
     
-      const submissionOffsetDays = schedule?.submissionOffsetDays ?? 7; // Default to 7 days before Payment Date
-      const submissionDeadline = extendDeadlineThroughWeekend(
-        addDays(paymentDate, -submissionOffsetDays),
-      );
+      // Deadline is the Monday of the payroll week (business rule).
+      const submissionDeadline = mondayBeforePayment(paymentDate);
       
       let newTotalHours = 0;
       let newTotalCost = 0;
