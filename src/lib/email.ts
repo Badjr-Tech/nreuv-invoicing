@@ -390,6 +390,44 @@ function name(n: string): string {
 }
 
 /**
+ * Weekly reminder to payroll managers that they have subordinate invoices
+ * waiting for their approval. Fires from the Wednesday cron.
+ */
+export const sendManagerApprovalReminder = async (
+  to: string,
+  managerName: string,
+  pendingCount: number,
+  invoicesLink: string,
+) => {
+  const html = userShell({
+    title: 'Approval Reminder',
+    body: `
+      <p style="margin:0 0 16px 0;">
+        ${name(managerName)}you have
+        <span style="color:#d11c21; font-weight:bold;">
+          ${pendingCount} invoice${pendingCount === 1 ? '' : 's'}
+        </span>
+        from your team waiting for your review.
+      </p>
+      <p style="margin:0 0 16px 0;">
+        Please pre-approve them before Friday's payroll so your team gets paid on time.
+      </p>
+      <p style="margin:0;">
+        If you have already approved them, no further action is needed.
+      </p>
+    `,
+    cta: { label: 'Review Invoices', href: invoicesLink },
+  });
+
+  await sendBrevoMail({
+    to,
+    subject: `Reminder: ${pendingCount} invoice${pendingCount === 1 ? '' : 's'} waiting for your approval`,
+    html,
+    label: 'manager approval reminder',
+  });
+};
+
+/**
  * Sent to the person who submitted the "Request an Account" form.
  * Confirms the request landed and sets expectations about next steps.
  */

@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { invoices, users, notifications } from "@/db/schema";
-import { desc, asc, eq, and, gte, lte } from "drizzle-orm";
+import { desc, asc, eq, and, gte, lte, isNull } from "drizzle-orm";
 import PayrollManagerDashboardClient from "./PayrollManagerDashboardClient";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
@@ -18,6 +18,9 @@ async function getAllInvoices(
   const orderBy = sortOrder === "asc" ? asc : desc;
 
   let whereClause = [];
+
+  // Dashboards never show archived invoices — /invoices is the escape hatch.
+  whereClause.push(isNull(invoices.archivedAt));
 
   if (filterUser) {
     whereClause.push(eq(invoices.userId, filterUser));

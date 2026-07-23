@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { invoices, users, notifications } from "@/db/schema";
-import { desc, asc, eq, and, gte, lte, count, sql } from "drizzle-orm"; // Added notifications and count
+import { desc, asc, eq, and, gte, lte, isNull, count, sql } from "drizzle-orm"; // Added notifications and count
 import AdminDashboardClient from "./AdminDashboardClient";
 
 async function getAllInvoices(
@@ -16,6 +16,9 @@ async function getAllInvoices(
   const orderBy = sortOrder === "asc" ? asc : desc;
 
   let whereClause = [];
+
+  // Dashboards never show archived invoices — /invoices is the escape hatch.
+  whereClause.push(isNull(invoices.archivedAt));
 
   if (filterUser) {
     whereClause.push(eq(invoices.userId, filterUser));

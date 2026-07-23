@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { invoices } from "@/db/schema";
-import { eq, and, gte, desc, asc } from "drizzle-orm"; // Added asc
+import { eq, and, gte, isNull, desc, asc } from "drizzle-orm"; // Added asc
 import { format, differenceInDays, subDays } from "date-fns";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -16,6 +16,7 @@ async function getUserInvoices(userId: string) {
     where: and(
       eq(invoices.userId, userId),
       gte(invoices.invoiceDate, cutoff),
+      isNull(invoices.archivedAt),
     ),
     with: { items: true },
     orderBy: [desc(invoices.invoiceDate)],
