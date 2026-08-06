@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import InvoicePdfDocument from "@/lib/pdf-generator";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { addDays, format } from "date-fns";
-import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail, sendInvoiceIssueEmail, sendAccountRequestConfirmationEmail, sendAdminAccountRequestEmail } from "@/lib/email";
+import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail, sendInvoiceIssueEmail, sendAccountRequestConfirmationEmail, sendAdminAccountRequestEmail, sendPasswordResetEmail } from "@/lib/email";
 import { generatePayPeriods, mondayBeforePayment } from "@/lib/schedule-utils";
 import { toCalendarDate } from "@/lib/date-utils";
 import { generatePasswordResetToken } from "@/lib/auth-utils";
@@ -1130,6 +1130,30 @@ export async function resetUserPassword(userId: string, newPassword: string) {
   const hashedPassword = await bcrypt.hash(newPassword, 10);
   await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
   revalidatePath("/admin/users");
+}
+
+/**
+ * Admin-triggered password reset via magic link. Generates a 24hr token,
+ * emails the user a link to /auth/set-password. Does NOT change the
+ * password until they click through and set a new one themselves.
+ */
+export async function sendPasswordResetLink(userId: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can trigger a password reset.");
+  }
+
+  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!user) throw new Error("User not found.");
+  if (!user.email) throw new Error("This user has no email on file.");
+
+  const token = await generatePasswordResetToken(user.id);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nreuv-invoicing.vercel.app";
+  const resetLink = `${appUrl}/auth/set-password?token=${token}`;
+
+  await sendPasswordResetEmail(user.email, user.name || "", resetLink);
+  revalidatePath("/admin/users");
+  return { success: true, message: `Reset link sent to ${user.email}.` };
 }
 
 export async function resetOwnPassword(currentPassword: string, newPassword: string) {

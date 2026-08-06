@@ -390,6 +390,41 @@ function name(n: string): string {
 }
 
 /**
+ * Sent when an admin triggers a password reset for a user. Contains a
+ * time-limited link to the /auth/set-password page where the user picks
+ * their own new password — no plaintext ever leaves the system.
+ */
+export const sendPasswordResetEmail = async (
+  to: string,
+  userName: string,
+  resetLink: string,
+) => {
+  const html = userShell({
+    title: 'Password Reset',
+    body: `
+      <p style="margin:0 0 16px 0;">
+        ${name(userName)}an administrator has reset your NREUV invoicing password.
+      </p>
+      <p style="margin:0 0 16px 0;">
+        To set a new one, click the button below. The link is valid for
+        <strong>24 hours</strong>.
+      </p>
+      <p style="margin:0;">
+        If you didn't expect this, reply to this email and we'll look into it.
+      </p>
+    `,
+    cta: { label: 'Set a New Password', href: resetLink },
+  });
+
+  await sendBrevoMail({
+    to,
+    subject: 'Reset your NREUV invoicing password',
+    html,
+    label: 'password reset',
+  });
+};
+
+/**
  * Weekly reminder to payroll managers that they have subordinate invoices
  * waiting for their approval. Fires from the Wednesday cron.
  */
