@@ -73,9 +73,10 @@ export default async function Sidebar() {
               Dashboard
             </Link>
           </li>
-          {/* User-facing onboarding entry — hidden from admins (they get the
-              oversight view below instead). */}
-          {session?.user?.id && session.user.role !== "ADMIN" && onboardingTotal > 0 && (() => {
+          {/* Onboarding module is hidden for now. Flip ONBOARDING_ENABLED
+              back to true (below and in OnboardingBanner) to restore both
+              the user checklist entry and the admin oversight link. */}
+          {false && session?.user?.id && session.user.role !== "ADMIN" && onboardingTotal > 0 && (() => {
             const remaining = onboardingTotal - onboardingDone;
             const allDone = remaining === 0;
             return (
@@ -101,7 +102,7 @@ export default async function Sidebar() {
               </li>
             );
           })()}
-          {session?.user?.role === "ADMIN" && (
+          {false && session?.user?.role === "ADMIN" && (
             <li>
               <Link href="/admin/onboarding" className="block py-2.5 px-4 rounded transition duration-200 hover:bg-black/20">
                 Onboarding Progress

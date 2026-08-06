@@ -8,7 +8,12 @@ import { count, eq } from "drizzle-orm";
  * Server component shown above every dashboard. Hides itself when the user
  * has completed the checklist (or when there are no tasks defined yet).
  */
+// Onboarding module is hidden for now — flip to true to re-enable the
+// banner + the /onboarding user page's discoverability.
+const ONBOARDING_ENABLED = false;
+
 export default async function OnboardingBanner() {
+  if (!ONBOARDING_ENABLED) return null;
   const session = await auth();
   if (!session?.user?.id) return null;
   // Admins don't have their own checklist — they oversee everyone else's.
