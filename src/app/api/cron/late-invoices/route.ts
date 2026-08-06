@@ -3,7 +3,8 @@ import { db } from '@/db';
 import { invoices } from '@/db/schema';
 import { eq, and, gt, lte } from 'drizzle-orm';
 import { sendLateInvoiceEmail } from '@/lib/email';
-import { startOfDay, endOfDay, format } from 'date-fns'; // Import format
+import { addDays, startOfDay, endOfDay, format } from 'date-fns';
+import { mondayBeforePayment } from '@/lib/schedule-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +40,10 @@ export async function GET(request: Request) {
     for (const invoice of upcomingInvoices) {
       if (invoice.user?.email && invoice.user?.name) {
         const invoiceLink = `${appUrl}/invoices/${invoice.id}`;
-        const dueDateAndTime = format(new Date(invoice.dueDate), "EEEE 'at' h:mm a"); // e.g., "Tuesday at 5:00 PM"
+        // Final deferral deadline is the Tuesday BEFORE payroll (Monday
+        // deadline + 1 day), at 5:00 PM. Not the raw dueDate.
+        const deferralDeadline = addDays(mondayBeforePayment(new Date(invoice.invoiceDate)), 1);
+        const dueDateAndTime = `${format(deferralDeadline, "EEEE, MMM d")} at 5:00 PM`;
         await sendLateInvoiceEmail(invoice.user.email, invoice.user.name, invoiceLink, dueDateAndTime);
       }
     }
