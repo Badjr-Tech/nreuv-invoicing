@@ -390,6 +390,55 @@ function name(n: string): string {
 }
 
 /**
+ * Sent to a payroll manager the moment their direct report submits an
+ * invoice for approval. Names a 6-hour SLA so they act quickly.
+ */
+export const sendManagerInvoiceApprovalEmail = async (
+  to: string,
+  managerName: string,
+  contractorName: string,
+  invoiceNumber: string | number,
+  amount: number,
+  submittedDate: Date,
+  invoiceLink: string,
+  approvalDeadline: string,
+) => {
+  const amountFormatted = `$${amount.toFixed(2)}`;
+  const submittedFormatted = submittedDate.toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+
+  const html = userShell({
+    title: 'Approval Needed',
+    body: `
+      <p style="margin:0 0 16px 0;">
+        ${name(managerName)}<strong>${escapeHtml(contractorName)}</strong> just
+        submitted an invoice that needs your review.
+      </p>
+      <p style="margin:0 0 18px 0;">
+        <span style="color:#777;">Invoice #:</span> <strong>${escapeHtml(String(invoiceNumber))}</strong><br>
+        <span style="color:#777;">Amount:</span> <strong>${amountFormatted}</strong><br>
+        <span style="color:#777;">Submitted:</span> ${escapeHtml(submittedFormatted)}
+      </p>
+      <p style="margin:0 0 16px 0;">
+        Please review and approve by
+        <span style="color:#d11c21; font-weight:bold;">${escapeHtml(approvalDeadline)}</span>
+        so it moves to admin approval on time.
+      </p>
+    `,
+    cta: { label: 'Review Invoice', href: invoiceLink },
+  });
+
+  await sendBrevoMail({
+    to,
+    subject: `Approval needed: ${contractorName} submitted an invoice`,
+    html,
+    label: 'manager invoice approval',
+  });
+};
+
+/**
  * Sent when an admin triggers a password reset for a user. Contains a
  * time-limited link to the /auth/set-password page where the user picks
  * their own new password — no plaintext ever leaves the system.
@@ -435,17 +484,17 @@ export const sendManagerApprovalReminder = async (
   invoicesLink: string,
 ) => {
   const html = userShell({
-    title: 'Approval Reminder',
+    title: 'Overdue: Approvals Needed',
     body: `
       <p style="margin:0 0 16px 0;">
-        ${name(managerName)}you have
-        <span style="color:#d11c21; font-weight:bold;">
-          ${pendingCount} invoice${pendingCount === 1 ? '' : 's'}
-        </span>
-        from your team waiting for your review.
+        ${name(managerName)}you
+        <span style="color:#d11c21; font-weight:bold;">still have not approved</span>
+        <strong>${pendingCount} invoice${pendingCount === 1 ? '' : 's'}</strong>
+        from your team.
       </p>
       <p style="margin:0 0 16px 0;">
-        Please pre-approve them before Friday's payroll so your team gets paid on time.
+        Payroll runs <strong>this Friday</strong> — please review and approve them
+        as soon as possible so your team gets paid on time.
       </p>
       <p style="margin:0;">
         If you have already approved them, no further action is needed.
@@ -456,9 +505,9 @@ export const sendManagerApprovalReminder = async (
 
   await sendBrevoMail({
     to,
-    subject: `Reminder: ${pendingCount} invoice${pendingCount === 1 ? '' : 's'} waiting for your approval`,
+    subject: `Overdue: ${pendingCount} invoice${pendingCount === 1 ? '' : 's'} still need${pendingCount === 1 ? 's' : ''} your approval`,
     html,
-    label: 'manager approval reminder',
+    label: 'manager approval escalation',
   });
 };
 

@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import InvoicePdfDocument from "@/lib/pdf-generator";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { addDays, format } from "date-fns";
-import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail, sendInvoiceIssueEmail, sendAccountRequestConfirmationEmail, sendAdminAccountRequestEmail, sendPasswordResetEmail } from "@/lib/email";
+import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail, sendInvoiceIssueEmail, sendAccountRequestConfirmationEmail, sendAdminAccountRequestEmail, sendPasswordResetEmail, sendManagerInvoiceApprovalEmail } from "@/lib/email";
 import { generatePayPeriods, mondayBeforePayment } from "@/lib/schedule-utils";
 import { toCalendarDate } from "@/lib/date-utils";
 import { generatePasswordResetToken } from "@/lib/auth-utils";
@@ -697,40 +697,84 @@ export async function updateInvoiceStatus(invoiceId: string, newStatus: "PENDING
   if (newStatus === "APPROVED") {
     updateData.approvedDate = new Date();
   } else if (newStatus === "PENDING_MANAGER" || newStatus === "PENDING_ADMIN") {
-    // Only set submittedDate if it's the first time submitting
+    // Set submittedDate once — on the very first submission out of DRAFT.
     if (invoiceRecord.status === "DRAFT") {
       updateData.submittedDate = new Date();
-      
-      // Notify admins
-      try {
-        const admins = await db.query.users.findMany({
-          where: eq(users.role, "ADMIN"),
-        });
-        
-        const userName = invoiceRecord.user?.name || invoiceRecord.user?.email || "Unknown User";
-        const userEmail = invoiceRecord.user?.email || "";
-        const invoiceNumber = invoiceRecord.invoiceNumber || invoiceRecord.id.substring(0, 8);
-        const amount = Number(invoiceRecord.totalCost || 0);
-        const submittedDate = updateData.submittedDate ?? new Date();
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nreuv-invoicing.vercel.app';
-        const adminLink = `${appUrl}/invoices/${invoiceRecord.id}`;
+    }
+  }
 
-        for (const admin of admins) {
-          if (admin.email) {
-            await sendAdminInvoiceSubmittedEmail(
-              admin.email,
+  // Email fan-out on submit-related transitions. Runs in try/catch so a
+  // delivery failure never blocks the DB write.
+  //
+  //   DRAFT → PENDING_MANAGER      → notify assigned manager (6hr SLA) + admins (informational)
+  //   DRAFT → PENDING_ADMIN        → notify admins (action needed)
+  //   PENDING_MANAGER → PENDING_ADMIN → notify admins (manager pre-approved, now your turn)
+  if (newStatus === "PENDING_MANAGER" || newStatus === "PENDING_ADMIN") {
+    try {
+      const userName = invoiceRecord.user?.name || invoiceRecord.user?.email || "Unknown User";
+      const userEmail = invoiceRecord.user?.email || "";
+      const invoiceNumber = invoiceRecord.invoiceNumber || invoiceRecord.id.substring(0, 8);
+      const amount = Number(invoiceRecord.totalCost || 0);
+      const submittedDate =
+        updateData.submittedDate ?? invoiceRecord.submittedDate ?? new Date();
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nreuv-invoicing.vercel.app';
+      const invoiceLink = `${appUrl}/invoices/${invoiceRecord.id}`;
+
+      // Every admin gets pinged on every submit-related transition so
+      // they always see activity and can act when it's PENDING_ADMIN.
+      const admins = await db.query.users.findMany({
+        where: eq(users.role, "ADMIN"),
+      });
+      for (const admin of admins) {
+        if (!admin.email) continue;
+        try {
+          await sendAdminInvoiceSubmittedEmail(
+            admin.email,
+            userName,
+            invoiceNumber,
+            userEmail,
+            amount,
+            submittedDate,
+            invoiceLink,
+          );
+        } catch (err) {
+          console.error("admin notify failed", { admin: admin.email, err });
+        }
+      }
+
+      // If it's the contractor's first stop with a manager, page the manager
+      // directly with the 6-hour SLA.
+      if (newStatus === "PENDING_MANAGER" && invoiceRecord.user?.managerId) {
+        const manager = await db.query.users.findFirst({
+          where: eq(users.id, invoiceRecord.user.managerId),
+        });
+        if (manager?.email) {
+          try {
+            // Approval deadline is Tuesday of the payroll week at 6:00 PM
+            // (Monday deadline + 1 day). Same weekday as the deferral
+            // cutoff, one hour later.
+            const approvalDeadlineDate = addDays(
+              mondayBeforePayment(new Date(invoiceRecord.invoiceDate)),
+              1,
+            );
+            const approvalDeadline = `${format(approvalDeadlineDate, "EEEE, MMM d")} at 6:00 PM`;
+            await sendManagerInvoiceApprovalEmail(
+              manager.email,
+              manager.name || manager.email,
               userName,
               invoiceNumber,
-              userEmail,
               amount,
               submittedDate,
-              adminLink,
+              invoiceLink,
+              approvalDeadline,
             );
+          } catch (err) {
+            console.error("manager notify failed", { manager: manager.email, err });
           }
         }
-      } catch (error) {
-        console.error("Failed to send admin notification email:", error);
       }
+    } catch (error) {
+      console.error("Failed to send submit-transition notifications:", error);
     }
   }
 

@@ -76,7 +76,7 @@ export default async function Sidebar() {
           {/* Onboarding module is hidden for now. Flip ONBOARDING_ENABLED
               back to true (below and in OnboardingBanner) to restore both
               the user checklist entry and the admin oversight link. */}
-          {false && session?.user?.id && session.user.role !== "ADMIN" && onboardingTotal > 0 && (() => {
+          {false && session?.user?.id && session?.user?.role !== "ADMIN" && onboardingTotal > 0 && (() => {
             const remaining = onboardingTotal - onboardingDone;
             const allDone = remaining === 0;
             return (
