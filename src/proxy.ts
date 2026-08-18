@@ -49,11 +49,8 @@ export default auth((req: any) => {
     }
 
     if (userRole === "ADMIN") {
-      if (nextUrl.pathname === "/" || adminRoutes.some(route => nextUrl.pathname.startsWith(route)) || isAdminUserProfileRoute) {
-        return NextResponse.next();
-      }
-      // If an ADMIN tries to access an unauthorized route, redirect to their dashboard
-      return NextResponse.redirect(new URL("/", nextUrl));
+      // Admins can access every page
+      return NextResponse.next();
     }
   }
 
