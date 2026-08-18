@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { invoices, fixedStaff } from "@/db/schema";
-import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import PayrollClient from "./PayrollClient";
 
@@ -20,24 +20,21 @@ export default async function PayrollPage({
 
   const { date } = await searchParams;
 
-  // Every payment date that has invoices, for the date picker dropdown
+  // Every payment date that has invoices, for the date picker dropdown.
+  // Compare calendar dates in SQL so results don't depend on the server's timezone.
+  const dateExpr = sql<string>`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD')`;
   const allDates = await db
-    .select({ invoiceDate: invoices.invoiceDate })
+    .select({ day: dateExpr })
     .from(invoices)
-    .groupBy(invoices.invoiceDate)
-    .orderBy(desc(invoices.invoiceDate));
+    .groupBy(dateExpr)
+    .orderBy(desc(dateExpr));
 
   const selectedDate =
     date ||
-    (allDates.length > 0
-      ? allDates[0].invoiceDate.toISOString().slice(0, 10)
-      : new Date().toISOString().slice(0, 10));
-
-  const dayStart = new Date(`${selectedDate}T00:00:00`);
-  const dayEnd = new Date(`${selectedDate}T23:59:59.999`);
+    (allDates.length > 0 ? allDates[0].day : new Date().toISOString().slice(0, 10));
 
   const dayInvoices = await db.query.invoices.findMany({
-    where: and(gte(invoices.invoiceDate, dayStart), lte(invoices.invoiceDate, dayEnd)),
+    where: sql`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD') = ${selectedDate}`,
     with: { user: { with: { company: true } } },
     orderBy: [desc(invoices.totalCost)],
   });
@@ -50,7 +47,7 @@ export default async function PayrollPage({
   return (
     <PayrollClient
       selectedDate={selectedDate}
-      availableDates={allDates.map((d) => d.invoiceDate.toISOString().slice(0, 10))}
+      availableDates={allDates.map((d) => d.day)}
       invoices={dayInvoices as any}
       fixedStaff={activeFixedStaff as any}
     />
