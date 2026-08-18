@@ -31,7 +31,7 @@ export default async function AdminUsersPage() {
   const allCompanies = await db.query.companies.findMany();
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 w-full">
       <h1 className="text-2xl font-bold text-slate-900 mb-4">Manage Users</h1>
       <AdminUsersClient
         initialUsers={allUsers as any}

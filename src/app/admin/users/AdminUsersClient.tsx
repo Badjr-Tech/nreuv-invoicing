@@ -158,31 +158,28 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
       </div>
       
       <div className="bg-white shadow-sm rounded-xl overflow-x-auto border border-slate-100">
-        <table className="min-w-full leading-normal">
+        <table className="w-full leading-normal">
         <thead>
           <tr>
-            <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <th className="px-3 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Name
             </th>
-            <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Email
-            </th>
-            <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <th className="px-3 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Hourly Rate
             </th>
-            <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <th className="px-3 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Role
             </th>
-            <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <th className="px-3 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Manager
             </th>
-            <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <th className="px-3 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Company
             </th>
-            <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <th className="px-3 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Category Bundles
             </th>
-            <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <th className="px-3 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Actions
             </th>
           </tr>
@@ -190,16 +187,14 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
         <tbody>
           {users.filter(u => showArchived || !u.archived).map((user) => (
             <tr key={user.id} className={user.archived ? "opacity-60" : ""}>
-              <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
-                <p className="text-slate-900 whitespace-no-wrap font-medium">
+              <td className="px-3 py-3 border-b border-slate-100 bg-white text-sm">
+                <p className="text-slate-900 font-medium">
                   {user.name}
                   {user.archived && <span className="ml-2 text-xs text-slate-400 italic">(archived)</span>}
                 </p>
+                <p className="text-slate-500 text-xs break-all">{user.email}</p>
               </td>
-              <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
-                <p className="text-slate-600 whitespace-no-wrap">{user.email}</p>
-              </td>
-              <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
+              <td className="px-3 py-3 border-b border-slate-100 bg-white text-sm">
                 <div className="flex items-center gap-2">
                   <span className="text-slate-500">$</span>
                   <input
@@ -214,16 +209,16 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
                       }
                     }}
                     disabled={isUpdating === user.id || user.role === "ADMIN"}
-                    className="border border-slate-300 rounded-lg p-2 w-24 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50"
+                    className="border border-slate-300 rounded-lg p-1.5 w-20 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50"
                   />
                 </div>
               </td>
-              <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
+              <td className="px-3 py-3 border-b border-slate-100 bg-white text-sm">
                 <select
                   value={user.role}
                   onChange={(e) => handleRoleChange(user.id, e.target.value as any)}
                   disabled={isUpdating === user.id}
-                  className="border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50"
+                  className="border border-slate-300 rounded-lg p-1.5 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50 w-full max-w-[11rem]"
                 >
                   <option value="ADMIN">Admin</option>
                   <option value="PAYROLL_MANAGER">Payroll Manager</option>
@@ -231,13 +226,13 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
                 </select>
                 {isUpdating === user.id && <span className="ml-2 text-xs text-slate-500 block">Updating...</span>}
               </td>
-              <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
+              <td className="px-3 py-3 border-b border-slate-100 bg-white text-sm">
                 {(user.role === "EMPLOYEE" || user.role === "USER") ? (
                   <select
                     value={user.managerId || ""}
                     onChange={(e) => handleManagerChange(user.id, e.target.value)}
                     disabled={isUpdating === user.id}
-                    className="border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50"
+                    className="border border-slate-300 rounded-lg p-1.5 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50 w-full max-w-[11rem]"
                   >
                     <option value="">None</option>
                     {potentialManagers.map(manager => (
@@ -248,12 +243,12 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
                   <span className="text-slate-400 italic">N/A</span>
                 )}
               </td>
-              <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
+              <td className="px-3 py-3 border-b border-slate-100 bg-white text-sm">
                 <select
                   value={user.companyId || ""}
                   onChange={(e) => handleCompanyChange(user.id, e.target.value)}
                   disabled={isUpdating === user.id}
-                  className="border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50"
+                  className="border border-slate-300 rounded-lg p-1.5 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50 w-full max-w-[11rem]"
                 >
                   <option value="">No company</option>
                   {allCompanies.map(company => (
@@ -261,7 +256,7 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
                   ))}
                 </select>
               </td>
-              <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
+              <td className="px-3 py-3 border-b border-slate-100 bg-white text-sm">
                 <div className="flex flex-col gap-2">
                   <div className="flex flex-wrap gap-1">
                     {user.categoryBundles.length > 0 ? (
@@ -298,7 +293,7 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
                   )}
                 </div>
               </td>
-              <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
+              <td className="px-3 py-3 border-b border-slate-100 bg-white text-sm">
                 <div className="flex flex-col gap-2 items-start">
                   <button
                     onClick={() => setResetPasswordUser(user)}
