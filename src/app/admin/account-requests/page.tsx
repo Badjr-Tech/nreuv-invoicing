@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { accountRequests } from "@/db/schema";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import AdminAccountRequestsClient from "./AdminAccountRequestsClient";
 
@@ -14,7 +14,9 @@ export default async function AdminAccountRequestsPage() {
     redirect("/auth/signin");
   }
 
+  // Only show requests that still need a decision — approved/denied ones are done
   const requests = await db.query.accountRequests.findMany({
+    where: eq(accountRequests.status, "PENDING"),
     orderBy: [desc(accountRequests.createdAt)],
   });
 

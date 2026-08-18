@@ -157,7 +157,7 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
         </button>
       </div>
       
-      <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-slate-100">
+      <div className="bg-white shadow-sm rounded-xl overflow-x-auto border border-slate-100">
         <table className="min-w-full leading-normal">
         <thead>
           <tr>
