@@ -1,6 +1,5 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
-import { toCalendarDate } from "@/lib/date-utils";
 
 interface Invoice {
   id: string;
@@ -120,21 +119,9 @@ interface InvoicePdfProps {
       description: string;
       hours: number;
       rate: number;
-      category?: { name: string } | null;
     }[];
   };
 }
-
-// Column widths sum to 100% — Date, Category, Description, Hours, Rate, Amount.
-const COL_WIDTHS = ["14%", "16%", "30%", "12%", "14%", "14%"];
-
-const cellBase = {
-  borderRightWidth: 1,
-  borderBottomWidth: 1,
-  borderColor: "#bababa" as const,
-  padding: 6,
-  textAlign: "center" as const,
-};
 
 const InvoicePdfDocument = ({ invoice }: InvoicePdfProps) => (
   <Document>
@@ -159,11 +146,11 @@ const InvoicePdfDocument = ({ invoice }: InvoicePdfProps) => (
           </Text>
           <Text style={styles.text}>
             <Text style={styles.sectionTitle}>Payment Date: </Text>
-            {toCalendarDate(invoice.invoiceDate).toLocaleDateString()}
+            {invoice.invoiceDate.toLocaleDateString()}
           </Text>
           <Text style={styles.text}>
             <Text style={styles.sectionTitle}>Submission Deadline: </Text>
-            {toCalendarDate(invoice.dueDate).toLocaleDateString()}
+            {invoice.dueDate.toLocaleDateString()}
           </Text>
         </View>
 
@@ -188,42 +175,21 @@ const InvoicePdfDocument = ({ invoice }: InvoicePdfProps) => (
       {/* Line Items Table */}
       <View style={styles.table}>
         <View style={styles.tableRow}>
-          {["Date", "Category", "Description", "Hours", "Rate", "Amount"].map((h, i) => (
-            <Text
-              key={h}
-              style={{
-                ...cellBase,
-                width: COL_WIDTHS[i],
-                backgroundColor: "#730404",
-                color: "#ffffff",
-                fontWeight: "bold",
-              }}
-            >
-              {h}
-            </Text>
-          ))}
+          <Text style={styles.tableColHeader}>Date</Text>
+          <Text style={styles.tableColHeader}>Description</Text>
+          <Text style={styles.tableColHeader}>Hours</Text>
+          <Text style={styles.tableColHeader}>Rate</Text>
+          <Text style={styles.tableColHeader}>Amount</Text>
         </View>
         {invoice.items.map((item, index) => {
           const isAlt = index % 2 === 1;
-          const rowBg = isAlt ? { backgroundColor: "#f7f7f7" as const } : {};
-          const cells = [
-            new Date(item.date).toLocaleDateString(),
-            item.category?.name || "—",
-            item.description,
-            String(item.hours),
-            `$${item.rate.toFixed(2)}`,
-            `$${(item.hours * item.rate).toFixed(2)}`,
-          ];
           return (
             <View style={styles.tableRow} key={index}>
-              {cells.map((value, i) => (
-                <Text
-                  key={i}
-                  style={{ ...cellBase, ...rowBg, width: COL_WIDTHS[i] }}
-                >
-                  {value}
-                </Text>
-              ))}
+              <Text style={isAlt ? styles.tableColAlt : styles.tableCol}>{new Date(item.date).toLocaleDateString()}</Text>
+              <Text style={isAlt ? styles.tableColAlt : styles.tableCol}>{item.description}</Text>
+              <Text style={isAlt ? styles.tableColAlt : styles.tableCol}>{item.hours}</Text>
+              <Text style={isAlt ? styles.tableColAlt : styles.tableCol}>${item.rate.toFixed(2)}</Text>
+              <Text style={isAlt ? styles.tableColAlt : styles.tableCol}>${(item.hours * item.rate).toFixed(2)}</Text>
             </View>
           );
         })}

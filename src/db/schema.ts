@@ -33,6 +33,12 @@ export const accountRequestStatusEnum = pgEnum("account_request_status", [
   "DENIED",
 ]);
 
+export const companies = pgTable("company", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull().unique(),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
 export const users = pgTable("user", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: text("email").notNull().unique(),
@@ -42,10 +48,23 @@ export const users = pgTable("user", {
   emailVerified: timestamp("email_verified", { mode: "date" }), // Added emailVerified
   hourlyRate: real("hourly_rate").default(0).notNull(), // Added hourlyRate
   managerId: uuid("manager_id").references((): any => users.id),
+  companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
+  archived: boolean("archived").default(false).notNull(),
+  archivedAt: timestamp("archived_at", { mode: "date" }),
   // New fields for user profile
   address: varchar("address", { length: 255 }),
   phone: varchar("phone", { length: 50 }),
   profilePictureUrl: varchar("profile_picture_url", { length: 255 }),
+});
+
+// Staff paid a fixed monthly amount who do not submit invoices.
+export const fixedStaff = pgTable("fixed_staff", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
+  monthlyAmount: real("monthly_amount").default(0).notNull(),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
 
 export type InsertUser = InferInsertModel<typeof users>;
@@ -75,7 +94,6 @@ export const invoices = pgTable("invoice", {
   totalCost: real("total_cost").default(0).notNull(),
   submittedDate: timestamp("submitted_date", { mode: "date" }),
   approvedDate: timestamp("approved_date", { mode: "date" }),
-  archivedAt: timestamp("archived_at", { mode: "date" }),
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id),
@@ -132,12 +150,28 @@ export const passwordResetTokens = pgTable("password_reset_token", {
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
 });
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   invoices: many(invoices),
   notifications: many(notifications),
   employees: many(users, { relationName: "manager" }),
   categoryBundles: many(userCategoryBundles),
   documents: many(documents), // Add documents relation
+  company: one(companies, {
+    fields: [users.companyId],
+    references: [companies.id],
+  }),
+}));
+
+export const companiesRelations = relations(companies, ({ many }) => ({
+  users: many(users),
+  fixedStaff: many(fixedStaff),
+}));
+
+export const fixedStaffRelations = relations(fixedStaff, ({ one }) => ({
+  company: one(companies, {
+    fields: [fixedStaff.companyId],
+    references: [companies.id],
+  }),
 }));
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
@@ -240,63 +274,6 @@ export const documentsRelations = relations(documents, ({ one }) => ({
     fields: [documents.uploadedById],
     references: [users.id],
     relationName: "uploaded_documents", // To differentiate from the user relation
-  }),
-}));
-
-// ── Onboarding checklist ─────────────────────────────────────────────────
-export const onboardingCategories = pgTable("onboarding_category", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  sortOrder: integer("sort_order").default(0).notNull(),
-});
-
-export const onboardingTasks = pgTable("onboarding_task", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  categoryId: uuid("category_id")
-    .notNull()
-    .references(() => onboardingCategories.id, { onDelete: "cascade" }),
-  // Optional inline subgrouping within a category (e.g. "Log in to Systems").
-  groupName: text("group_name"),
-  title: text("title").notNull(),
-  description: text("description"),
-  // Optional external URL (e.g. doc, form, meeting booking link).
-  externalUrl: text("external_url"),
-  // Optional file download (Vercel Blob URL for W9, signature template, etc.).
-  attachmentUrl: text("attachment_url"),
-  sortOrder: integer("sort_order").default(0).notNull(),
-});
-
-export const userOnboardingProgress = pgTable("user_onboarding_progress", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  taskId: uuid("task_id")
-    .notNull()
-    .references(() => onboardingTasks.id, { onDelete: "cascade" }),
-  completedAt: timestamp("completed_at", { mode: "date" }).defaultNow().notNull(),
-});
-
-export const onboardingCategoriesRelations = relations(onboardingCategories, ({ many }) => ({
-  tasks: many(onboardingTasks),
-}));
-
-export const onboardingTasksRelations = relations(onboardingTasks, ({ one, many }) => ({
-  category: one(onboardingCategories, {
-    fields: [onboardingTasks.categoryId],
-    references: [onboardingCategories.id],
-  }),
-  progress: many(userOnboardingProgress),
-}));
-
-export const userOnboardingProgressRelations = relations(userOnboardingProgress, ({ one }) => ({
-  user: one(users, {
-    fields: [userOnboardingProgress.userId],
-    references: [users.id],
-  }),
-  task: one(onboardingTasks, {
-    fields: [userOnboardingProgress.taskId],
-    references: [onboardingTasks.id],
   }),
 }));
 

@@ -1,43 +1,42 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { invoiceDeadlineSettings, categories, categoryBundles, categoryBundleCategories } from "@/db/schema";
 import { redirect } from "next/navigation";
 import AdminSettingsClient from "./AdminSettingsClient";
-import { asc, eq } from "drizzle-orm";
+import CompaniesSection from "./CompaniesSection";
+import FixedStaffSection from "./FixedStaffSection";
 
-async function getAdminSettingsData() {
-  const session = await auth();
-
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    redirect("/auth/signin"); // Or to an unauthorized page
-  }
-
-  const existingDeadlineSettings = await db.query.invoiceDeadlineSettings.findMany();
-  const existingCategories = await db.query.categories.findMany({
-    orderBy: [asc(categories.name)]
-  });
-  const existingCategoryBundles = await db.query.categoryBundles.findMany({
-    orderBy: [asc(categoryBundles.name)],
-    with: {
-      categories: {
-        with: {
-          category: true, // Fetch the actual category details
-        },
-      },
-    },
-  });
-
-  return { existingDeadlineSettings, existingCategories, existingCategoryBundles };
-}
+export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
-  const { existingDeadlineSettings, existingCategories, existingCategoryBundles } = await getAdminSettingsData();
+  const session = await auth();
+
+  if (!session?.user || session.user.role !== "ADMIN") {
+    redirect("/auth/signin");
+  }
+
+  const deadlineSettings = await db.query.invoiceDeadlineSettings.findMany();
+  const allCategories = await db.query.categories.findMany();
+  const allBundles = await db.query.categoryBundles.findMany({
+    with: { categories: { with: { category: true } } },
+  });
+  const allCompanies = await db.query.companies.findMany();
+  const allFixedStaff = await db.query.fixedStaff.findMany({
+    with: { company: true },
+  });
 
   return (
-    <AdminSettingsClient
-      initialDeadlineSettings={existingDeadlineSettings}
-      initialCategories={existingCategories}
-      initialCategoryBundles={existingCategoryBundles}
-    />
+    <div className="p-6 max-w-5xl mx-auto space-y-8">
+      <h1 className="text-2xl font-bold text-slate-900">System Settings</h1>
+
+      <CompaniesSection initialCompanies={allCompanies} />
+
+      <FixedStaffSection initialStaff={allFixedStaff as any} companies={allCompanies} />
+
+      <AdminSettingsClient
+        initialDeadlineSettings={deadlineSettings as any}
+        initialCategories={allCategories}
+        initialCategoryBundles={allBundles as any}
+      />
+    </div>
   );
 }

@@ -1,19 +1,16 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import { db } from "@/db"; // Import db
-import { notifications, invoices, onboardingTasks, userOnboardingProgress } from "@/db/schema"; // Import notifications and invoices schema
+import { notifications, invoices } from "@/db/schema"; // Import notifications and invoices schema
 import { eq, count, and, desc } from "drizzle-orm"; // Import count, and, desc
 import { markAllNotificationsAsRead } from "@/app/actions"; // Import the action
 import { format } from "date-fns";
-import { toCalendarDate } from "@/lib/date-utils";
 
 export default async function Sidebar() {
   const session = await auth();
 
   let unreadNotificationsCount = 0;
   let approvedDates: { invoiceDate: Date }[] = [];
-  let onboardingTotal = 0;
-  let onboardingDone = 0;
 
   if (session?.user?.id) {
     const [{ value }] = await db
@@ -21,22 +18,6 @@ export default async function Sidebar() {
       .from(notifications)
       .where(eq(notifications.userId, session.user.id));
     unreadNotificationsCount = value;
-
-    // Onboarding progress for the nav badge. Wrapped because the tables may
-    // not exist yet on a fresh deploy (until `npm run db:push` runs).
-    try {
-      const [{ value: total }] = await db
-        .select({ value: count() })
-        .from(onboardingTasks);
-      onboardingTotal = total;
-      const [{ value: doneCount }] = await db
-        .select({ value: count() })
-        .from(userOnboardingProgress)
-        .where(eq(userOnboardingProgress.userId, session.user.id));
-      onboardingDone = doneCount;
-    } catch (err) {
-      console.warn("Onboarding tables not available yet:", err);
-    }
 
     // Fetch distinct approved dates
     let datesQuery;
@@ -73,39 +54,10 @@ export default async function Sidebar() {
               Dashboard
             </Link>
           </li>
-          {/* Onboarding module is hidden for now. Flip ONBOARDING_ENABLED
-              back to true (below and in OnboardingBanner) to restore both
-              the user checklist entry and the admin oversight link. */}
-          {false && session?.user?.id && session?.user?.role !== "ADMIN" && onboardingTotal > 0 && (() => {
-            const remaining = onboardingTotal - onboardingDone;
-            const allDone = remaining === 0;
-            return (
-              <li>
-                <Link
-                  href="/onboarding"
-                  className={
-                    allDone
-                      ? "flex justify-between items-center py-2.5 px-4 rounded transition duration-200 text-white/50 hover:bg-black/10"
-                      : "flex justify-between items-center py-2.5 px-4 rounded transition duration-200 bg-nreuv-accent hover:opacity-90 font-semibold shadow-sm ring-1 ring-white/30"
-                  }
-                >
-                  <span className="flex items-center gap-2">
-                    Onboarding
-                    {allDone && <span aria-hidden>✓</span>}
-                  </span>
-                  {!allDone && (
-                    <span className="bg-white text-nreuv-primary text-xs font-bold px-2 py-0.5 rounded-full">
-                      {remaining} to go
-                    </span>
-                  )}
-                </Link>
-              </li>
-            );
-          })()}
-          {false && session?.user?.role === "ADMIN" && (
+          {session?.user?.role === "ADMIN" && (
             <li>
-              <Link href="/admin/onboarding" className="block py-2.5 px-4 rounded transition duration-200 hover:bg-black/20">
-                Onboarding Progress
+              <Link href="/admin/payroll" className="block py-2.5 px-4 rounded transition duration-200 hover:bg-black/20">
+                Run Payroll
               </Link>
             </li>
           )}
@@ -198,14 +150,14 @@ export default async function Sidebar() {
               </span>
               <ul className="space-y-1">
                 {approvedDates.map((d, index) => {
-                  const dateStr = format(toCalendarDate(d.invoiceDate), "yyyy-MM-dd");
+                  const dateStr = format(new Date(d.invoiceDate), "yyyy-MM-dd");
                   return (
                     <li key={index}>
                       <Link
                         href={`/invoices?filterPaymentDateStart=${dateStr}&filterPaymentDateEnd=${dateStr}&filterStatus=APPROVED`}
                         className="block py-1.5 px-4 text-sm rounded transition duration-200 hover:bg-black/20 text-gray-200 hover:text-white"
                       >
-                        {format(toCalendarDate(d.invoiceDate), "MMM dd, yyyy")}
+                        {format(new Date(d.invoiceDate), "MMM dd, yyyy")}
                       </Link>
                     </li>
                   );

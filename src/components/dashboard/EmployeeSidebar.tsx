@@ -1,38 +1,41 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
 
-interface Employee {
+interface EmployeeSummary {
   id: string;
   name: string | null;
   email: string;
-  unreadNotifications: number;
+  unreadNotifications?: number;
 }
 
-interface EmployeeSidebarProps {
-  users: Employee[]; 
-}
-
-export default function EmployeeSidebar({ users }: EmployeeSidebarProps) {
+export default function EmployeeSidebar({ users }: { users: EmployeeSummary[] }) {
   return (
-    <div className="w-64 bg-gray-50 p-4 shadow-md rounded-lg">
-      <h2 className="text-xl font-semibold text-gray-800 mb-4">Contractors</h2>
-      <ul>
-        {users.map((user) => (
-          <li key={user.id} className="mb-2">
-            <Link href={`?filterUser=${user.id}`} className="flex justify-between items-center text-nreuv-primary hover:text-nreuv-accent hover:underline transition-colors">
-              {user.name || user.email}
-              {user.unreadNotifications > 0 && (
-                <span className="bg-nreuv-accent text-white text-xs font-bold px-2 py-1 rounded-full">
-                  {user.unreadNotifications}
-                </span>
-              )}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <aside className="w-56 flex-shrink-0 bg-white rounded-xl shadow-sm border border-slate-100 p-4 h-fit hidden lg:block">
+      <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+        Employees
+      </h2>
+      {users.length === 0 ? (
+        <p className="text-sm text-slate-400 italic">No employees yet.</p>
+      ) : (
+        <ul className="space-y-1">
+          {users.map((user) => (
+            <li key={user.id}>
+              <Link
+                href={`/admin/users/${user.id}/profile`}
+                className="flex justify-between items-center py-1.5 px-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                <span className="truncate">{user.name || user.email}</span>
+                {(user.unreadNotifications ?? 0) > 0 && (
+                  <span className="ml-2 bg-nreuv-accent text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
+                    {user.unreadNotifications}
+                  </span>
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </aside>
   );
 }
-

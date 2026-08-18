@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { invoices, users, notifications } from "@/db/schema";
-import { desc, asc, eq, and, gte, lte, isNull } from "drizzle-orm";
+import { desc, asc, eq, and, gte, lte } from "drizzle-orm";
 import PayrollManagerDashboardClient from "./PayrollManagerDashboardClient";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
@@ -19,9 +19,6 @@ async function getAllInvoices(
 
   let whereClause = [];
 
-  // Dashboards never show archived invoices — /invoices is the escape hatch.
-  whereClause.push(isNull(invoices.archivedAt));
-
   if (filterUser) {
     whereClause.push(eq(invoices.userId, filterUser));
   }
@@ -32,12 +29,6 @@ async function getAllInvoices(
 
   if (filterInvoiceDateStart) {
     whereClause.push(gte(invoices.invoiceDate, new Date(filterInvoiceDateStart)));
-  } else {
-    // Default: only show the last 30 days on the dashboard (plus any
-    // future-dated invoices). Managers can widen it via the date filter.
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 30);
-    whereClause.push(gte(invoices.invoiceDate, cutoff));
   }
   if (filterInvoiceDateEnd) {
     whereClause.push(lte(invoices.invoiceDate, new Date(filterInvoiceDateEnd)));
@@ -59,8 +50,8 @@ async function getAllInvoices(
 
 async function getAllUsers() {
     return db.query.users.findMany({
-      where: (users, { ne }) => ne(users.role, "ADMIN"),
-    }); // Fetch non-admin users for the sidebar
+      where: (users, { ne, and, eq }) => and(ne(users.role, "ADMIN"), eq(users.archived, false)),
+    }); // Fetch non-admin, non-archived users for the sidebar
 }
 
 export default async function PayrollManagerDashboard({

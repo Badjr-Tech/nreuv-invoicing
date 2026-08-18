@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { updateUserRole, updateUserRate, updateUserManager, assignBundleToUser, unassignBundleFromUser } from "@/app/actions";
+import { updateUserRole, updateUserRate, updateUserManager, assignBundleToUser, unassignBundleFromUser, updateUserCompany, archiveUser, unarchiveUser } from "@/app/actions";
 import AddUserModal from "./AddUserModal";
 import ResetPasswordModal from "./ResetPasswordModal";
 import { useRouter } from "next/navigation";
@@ -16,6 +16,11 @@ interface CategoryBundle {
   name: string;
 }
 
+interface Company {
+  id: string;
+  name: string;
+}
+
 interface User {
   id: string;
   name: string | null;
@@ -23,16 +28,20 @@ interface User {
   hourlyRate: number;
   role: string;
   managerId: string | null;
+  companyId: string | null;
+  archived: boolean;
   categoryBundles: { bundle: CategoryBundle }[];
 }
 
-export default function AdminUsersClient({ initialUsers, potentialManagers, allCategoryBundles, allCategories }: { 
-  initialUsers: User[], 
-  potentialManagers: User[], 
-  allCategoryBundles: CategoryBundle[], 
-  allCategories: Category[] 
+export default function AdminUsersClient({ initialUsers, potentialManagers, allCategoryBundles, allCategories, allCompanies }: {
+  initialUsers: User[],
+  potentialManagers: User[],
+  allCategoryBundles: CategoryBundle[],
+  allCategories: Category[],
+  allCompanies: Company[]
 }) {
   const [users, setUsers] = useState(initialUsers);
+  const [showArchived, setShowArchived] = useState(false);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [resetPasswordUser, setResetPasswordUser] = useState<any | null>(null);
@@ -75,6 +84,38 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
     }
   };
 
+  const handleCompanyChange = async (userId: string, companyId: string) => {
+    setIsUpdating(userId);
+    try {
+      const newCompanyId = companyId === "" ? null : companyId;
+      await updateUserCompany(userId, newCompanyId);
+      setUsers(users.map(u => u.id === userId ? { ...u, companyId: newCompanyId } : u));
+    } catch (error: any) {
+      alert(error.message || "Failed to update user company.");
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handleArchiveToggle = async (user: User) => {
+    if (!user.archived && !confirm(`Archive ${user.name || user.email}? They will no longer be able to sign in and will disappear from lists, but all of their invoices and history are kept.`)) {
+      return;
+    }
+    setIsUpdating(user.id);
+    try {
+      if (user.archived) {
+        await unarchiveUser(user.id);
+      } else {
+        await archiveUser(user.id);
+      }
+      setUsers(users.map(u => u.id === user.id ? { ...u, archived: !user.archived } : u));
+    } catch (error: any) {
+      alert(error.message || "Failed to update user.");
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
   const handleUserAdded = (newUser: any) => {
     setUsers([newUser, ...users]); // Add to top of list
   };
@@ -99,8 +140,16 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
 
   return (
     <>
-      <div className="flex justify-end mb-4">
-        <button 
+      <div className="flex justify-between items-center mb-4">
+        <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+          />
+          Show archived users ({users.filter(u => u.archived).length})
+        </label>
+        <button
           onClick={() => setIsAddModalOpen(true)}
           className="bg-nreuv-primary hover:opacity-90 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-nreuv-accent shadow-sm transition-colors flex items-center gap-2"
         >
@@ -128,6 +177,9 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
               Manager
             </th>
             <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Company
+            </th>
+            <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Category Bundles
             </th>
             <th className="px-5 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -136,10 +188,13 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
           </tr>
         </thead>
         <tbody>
-          {users.map((user) => (
-            <tr key={user.id}>
+          {users.filter(u => showArchived || !u.archived).map((user) => (
+            <tr key={user.id} className={user.archived ? "opacity-60" : ""}>
               <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
-                <p className="text-slate-900 whitespace-no-wrap font-medium">{user.name}</p>
+                <p className="text-slate-900 whitespace-no-wrap font-medium">
+                  {user.name}
+                  {user.archived && <span className="ml-2 text-xs text-slate-400 italic">(archived)</span>}
+                </p>
               </td>
               <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
                 <p className="text-slate-600 whitespace-no-wrap">{user.email}</p>
@@ -194,6 +249,19 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
                 )}
               </td>
               <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
+                <select
+                  value={user.companyId || ""}
+                  onChange={(e) => handleCompanyChange(user.id, e.target.value)}
+                  disabled={isUpdating === user.id}
+                  className="border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50"
+                >
+                  <option value="">No company</option>
+                  {allCompanies.map(company => (
+                    <option key={company.id} value={company.id}>{company.name}</option>
+                  ))}
+                </select>
+              </td>
+              <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
                 <div className="flex flex-col gap-2">
                   <div className="flex flex-wrap gap-1">
                     {user.categoryBundles.length > 0 ? (
@@ -231,12 +299,25 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
                 </div>
               </td>
               <td className="px-5 py-4 border-b border-slate-100 bg-white text-sm">
-                <button
-                  onClick={() => setResetPasswordUser(user)}
-                  className="text-nreuv-primary hover:text-nreuv-accent font-medium text-xs border border-nreuv-primary hover:border-nreuv-accent rounded px-2 py-1 transition-colors"
-                >
-                  Reset Password
-                </button>
+                <div className="flex flex-col gap-2 items-start">
+                  <button
+                    onClick={() => setResetPasswordUser(user)}
+                    className="text-nreuv-primary hover:text-nreuv-accent font-medium text-xs border border-nreuv-primary hover:border-nreuv-accent rounded px-2 py-1 transition-colors"
+                  >
+                    Reset Password
+                  </button>
+                  <button
+                    onClick={() => handleArchiveToggle(user)}
+                    disabled={isUpdating === user.id}
+                    className={`font-medium text-xs border rounded px-2 py-1 transition-colors disabled:opacity-50 ${
+                      user.archived
+                        ? "text-green-700 border-green-600 hover:bg-green-50"
+                        : "text-red-600 border-red-500 hover:bg-red-50"
+                    }`}
+                  >
+                    {user.archived ? "Restore" : "Archive"}
+                  </button>
+                </div>
               </td>
             </tr>
           ))}

@@ -1,23 +1,15 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { invoices } from "@/db/schema";
-import { eq, and, gte, isNull, desc, asc } from "drizzle-orm"; // Added asc
-import { format, differenceInDays, subDays } from "date-fns";
+import { eq, desc, asc } from "drizzle-orm"; // Added asc
+import { format, differenceInDays } from "date-fns";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import DownloadPdfButton from "./DownloadPdfButton";
-import { toCalendarDate } from "@/lib/date-utils";
 
 async function getUserInvoices(userId: string) {
-  // Dashboard is scoped to the last 30 days of payment dates (and any
-  // future-dated invoices — DRAFTs for upcoming pay cycles stay visible).
-  const cutoff = subDays(new Date(), 30);
   return db.query.invoices.findMany({
-    where: and(
-      eq(invoices.userId, userId),
-      gte(invoices.invoiceDate, cutoff),
-      isNull(invoices.archivedAt),
-    ),
+    where: eq(invoices.userId, userId),
     with: { items: true },
     orderBy: [desc(invoices.invoiceDate)],
   });
@@ -115,10 +107,10 @@ export default async function UserDashboard() {
               {userInvoices.map((invoice) => (
                 <tr key={invoice.id}>
                   <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                    <p className="text-gray-900 whitespace-no-wrap">{format(toCalendarDate(invoice.invoiceDate), "yyyy-MM-dd")}</p>
+                    <p className="text-gray-900 whitespace-no-wrap">{format(new Date(invoice.invoiceDate), "yyyy-MM-dd")}</p>
                   </td>
                   <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                    <p className="text-gray-900 whitespace-no-wrap">{format(toCalendarDate(invoice.dueDate), "yyyy-MM-dd")}</p>
+                    <p className="text-gray-900 whitespace-no-wrap">{format(new Date(invoice.dueDate), "yyyy-MM-dd")}</p>
                   </td>
                   <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                     <span

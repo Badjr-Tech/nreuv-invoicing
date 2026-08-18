@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { db } from "./db";
 import { users } from "./db/schema";
 import { eq } from "drizzle-orm";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -23,6 +23,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .from(users)
           .where(eq(users.email, credentials.email as string))
           .limit(1);
+
+        if (user?.archived) {
+          return null; // Archived users can no longer sign in
+        }
 
         if (user && bcrypt.compareSync(credentials.password as string, user.password)) {
           return { id: user.id, name: user.name, email: user.email, role: user.role };

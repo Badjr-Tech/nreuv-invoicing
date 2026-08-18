@@ -61,11 +61,13 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
       return true;
     }
 
-    const pStartStr = new Date(selectedPayPeriod.periodStart).toISOString().split('T')[0];
-    const pEndStr = new Date(selectedPayPeriod.periodEnd).toISOString().split('T')[0];
-    const itemStr = String(dateString).slice(0, 10);
+    const itemDate = new Date(dateString);
+    const pStart = new Date(selectedPayPeriod.periodStart);
+    const pEnd = new Date(selectedPayPeriod.periodEnd);
+    pStart.setHours(0, 0, 0, 0);
+    pEnd.setHours(23, 59, 59, 999);
 
-    if (itemStr < pStartStr || itemStr > pEndStr) {
+    if (itemDate < pStart || itemDate > pEnd) {
       newErrors[itemIndex] = "Date is not within the selected payroll period.";
       setItemErrors(newErrors);
       return false;
@@ -103,33 +105,21 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
     setError(null);
 
     try {
-      const shortDescIdx = items.findIndex(
-        item => item.description.trim().length > 0 && item.description.trim().length < 10
-      );
-      if (shortDescIdx !== -1) {
-        throw new Error(`Item at row ${shortDescIdx + 1}: description must be at least 10 characters.`);
-      }
-      const missingCatIdx = items.findIndex(
-        item => item.description.trim().length >= 10 && item.hours > 0 && item.date && !item.categoryId
-      );
-      if (missingCatIdx !== -1) {
-        throw new Error(`Item at row ${missingCatIdx + 1}: please select a category.`);
-      }
-      const validItems = items.filter(item => item.description.trim().length >= 10 && item.hours > 0 && item.date && item.categoryId);
+      const validItems = items.filter(item => item.description.trim() !== '' && item.hours > 0 && item.date);
       if (validItems.length === 0) {
         throw new Error("Please add at least one valid item with date, description, and hours to save progress.");
       }
 
-      // If a pay period is selected, enforce that all items fall within it.
-      // Compare on YYYY-MM-DD strings to avoid timezone off-by-one at the
-      // boundary (item date inputs are local calendar days, not UTC).
+      // If a pay period is selected, enforce that all items fall within it
       if (selectedPayPeriod) {
-        const pStartStr = new Date(selectedPayPeriod.periodStart).toISOString().split('T')[0];
-        const pEndStr = new Date(selectedPayPeriod.periodEnd).toISOString().split('T')[0];
+        const pStart = new Date(selectedPayPeriod.periodStart);
+        const pEnd = new Date(selectedPayPeriod.periodEnd);
+        pStart.setHours(0, 0, 0, 0);
+        pEnd.setHours(23, 59, 59, 999);
 
         for (let i = 0; i < validItems.length; i++) {
-          const itemStr = String(validItems[i].date).slice(0, 10);
-          if (itemStr < pStartStr || itemStr > pEndStr) {
+          const itemDate = new Date(validItems[i].date);
+          if (itemDate < pStart || itemDate > pEnd) {
             throw new Error(`Item at row ${i + 1} has a date (${validItems[i].date}) outside the allowed billing period (${selectedPayPeriod.label}).`);
           }
         }
@@ -160,33 +150,21 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
     setError(null);
 
     try {
-      const shortDescIdx = items.findIndex(
-        item => item.description.trim().length > 0 && item.description.trim().length < 10
-      );
-      if (shortDescIdx !== -1) {
-        throw new Error(`Item at row ${shortDescIdx + 1}: description must be at least 10 characters.`);
-      }
-      const missingCatIdx = items.findIndex(
-        item => item.description.trim().length >= 10 && item.hours > 0 && item.date && !item.categoryId
-      );
-      if (missingCatIdx !== -1) {
-        throw new Error(`Item at row ${missingCatIdx + 1}: please select a category.`);
-      }
-      const validItems = items.filter(item => item.description.trim().length >= 10 && item.hours > 0 && item.date && item.categoryId);
+      const validItems = items.filter(item => item.description.trim() !== '' && item.hours > 0 && item.date);
       if (validItems.length === 0) {
         throw new Error("Please add at least one valid item with date, description, and hours.");
       }
 
-      // If a pay period is selected, enforce that all items fall within it.
-      // Compare on YYYY-MM-DD strings to avoid timezone off-by-one at the
-      // boundary (item date inputs are local calendar days, not UTC).
+      // If a pay period is selected, enforce that all items fall within it
       if (selectedPayPeriod) {
-        const pStartStr = new Date(selectedPayPeriod.periodStart).toISOString().split('T')[0];
-        const pEndStr = new Date(selectedPayPeriod.periodEnd).toISOString().split('T')[0];
+        const pStart = new Date(selectedPayPeriod.periodStart);
+        const pEnd = new Date(selectedPayPeriod.periodEnd);
+        pStart.setHours(0, 0, 0, 0);
+        pEnd.setHours(23, 59, 59, 999);
 
         for (let i = 0; i < validItems.length; i++) {
-          const itemStr = String(validItems[i].date).slice(0, 10);
-          if (itemStr < pStartStr || itemStr > pEndStr) {
+          const itemDate = new Date(validItems[i].date);
+          if (itemDate < pStart || itemDate > pEnd) {
             throw new Error(`Item at row ${i + 1} has a date (${validItems[i].date}) outside the allowed billing period (${selectedPayPeriod.label}).`);
           }
         }
@@ -333,41 +311,25 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
                   <input
                     type="text"
                     required
-                    minLength={10}
-                    placeholder="Work description (min 10 chars)…"
+                    placeholder="Work description..."
                     value={item.description}
                     onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                    className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none ${
-                      item.description.trim().length > 0 && item.description.trim().length < 10
-                        ? 'border-red-300'
-                        : 'border-slate-300'
-                    }`}
+                    className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none"
                   />
-                  {item.description.trim().length > 0 && item.description.trim().length < 10 && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {10 - item.description.trim().length} more character{10 - item.description.trim().length === 1 ? '' : 's'} needed.
-                    </p>
-                  )}
                 </div>
                 
                 <div className="w-1/3 md:w-1/6">
                   <label className="block text-xs font-medium text-slate-500 mb-1">Category</label>
                   <select
-                    required
                     value={item.categoryId}
                     onChange={(e) => handleItemChange(index, 'categoryId', e.target.value)}
-                    className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none bg-white ${
-                      !item.categoryId ? 'border-red-300' : 'border-slate-300'
-                    }`}
+                    className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-nreuv-accent outline-none bg-white"
                   >
-                    <option value="" disabled>Select category…</option>
+                    <option value="">None</option>
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
                   </select>
-                  {!item.categoryId && (
-                    <p className="text-red-500 text-xs mt-1">Category required.</p>
-                  )}
                 </div>
 
                 <div className="w-1/4 md:w-1/6">

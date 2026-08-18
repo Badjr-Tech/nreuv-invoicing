@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { invoices, users, notifications } from "@/db/schema";
-import { desc, asc, eq, and, gte, lte, isNull, count, sql } from "drizzle-orm"; // Added notifications and count
+import { desc, asc, eq, and, gte, lte, count, sql } from "drizzle-orm"; // Added notifications and count
 import AdminDashboardClient from "./AdminDashboardClient";
 
 async function getAllInvoices(
@@ -17,9 +17,6 @@ async function getAllInvoices(
 
   let whereClause = [];
 
-  // Dashboards never show archived invoices — /invoices is the escape hatch.
-  whereClause.push(isNull(invoices.archivedAt));
-
   if (filterUser) {
     whereClause.push(eq(invoices.userId, filterUser));
   }
@@ -30,12 +27,6 @@ async function getAllInvoices(
 
   if (filterInvoiceDateStart) {
     whereClause.push(gte(invoices.invoiceDate, new Date(filterInvoiceDateStart)));
-  } else {
-    // Default: only show the last 30 days on the dashboard (plus any
-    // future-dated invoices). Users can widen it via the date filter.
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 30);
-    whereClause.push(gte(invoices.invoiceDate, cutoff));
   }
   if (filterInvoiceDateEnd) {
     whereClause.push(lte(invoices.invoiceDate, new Date(filterInvoiceDateEnd)));
@@ -50,7 +41,8 @@ async function getAllInvoices(
 
   return db.query.invoices.findMany({
     where: and(...whereClause),
-          with: { user: true },    orderBy: [orderBy((invoices as any)[sortField])], // Dynamic order by
+    with: { user: { with: { company: true } } },
+    orderBy: [orderBy((invoices as any)[sortField])], // Dynamic order by
   });
 }
 
@@ -61,7 +53,7 @@ async function getAllUsersWithNotificationCounts() {
       email: users.email,
       unreadNotifications: sql<number>`(SELECT count(*) FROM ${notifications} WHERE ${notifications.userId} = ${users.id} AND ${notifications.read} = FALSE)`
     }).from(users)
-    .where(sql`${users.role} != 'ADMIN'`);
+    .where(sql`${users.role} != 'ADMIN' AND ${users.archived} = FALSE`);
 
     return usersWithCounts.map(u => ({
       ...u,

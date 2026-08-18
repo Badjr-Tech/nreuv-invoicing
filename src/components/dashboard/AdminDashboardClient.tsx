@@ -7,7 +7,6 @@ import { format } from "date-fns";
 import DownloadPdfButton from "./DownloadPdfButton";
 import DownloadCsvButton from "./DownloadCsvButton";
 import EmployeeSidebar from "./EmployeeSidebar"; // Added import for EmployeeSidebar
-import { toCalendarDate } from "@/lib/date-utils";
 
 type InvoiceStatus = "DRAFT" | "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED" | "SENT";
 
@@ -54,6 +53,18 @@ export default function AdminDashboardClient({ initialInvoices, users }: { initi
     }
     router.push(`?${params.toString()}`);
   };
+
+  // Group invoices by the employee's company
+  const NO_COMPANY = "No Company Assigned";
+  const invoicesByCompany = new Map<string, any[]>();
+  for (const invoice of initialInvoices) {
+    const companyName = invoice.user?.company?.name || NO_COMPANY;
+    if (!invoicesByCompany.has(companyName)) invoicesByCompany.set(companyName, []);
+    invoicesByCompany.get(companyName)!.push(invoice);
+  }
+  const companyNames = [...invoicesByCompany.keys()].sort((a, b) =>
+    a === NO_COMPANY ? 1 : b === NO_COMPANY ? -1 : a.localeCompare(b)
+  );
 
   return (
     <div className="p-4 flex gap-4"> {/* Use flex to layout sidebar and main content */}
@@ -155,7 +166,18 @@ export default function AdminDashboardClient({ initialInvoices, users }: { initi
         {initialInvoices.length === 0 ? (
           <p className="text-gray-600">No invoices found matching criteria.</p>
         ) : (
-          <div className="bg-white shadow-md rounded-lg overflow-hidden">
+          companyNames.map((companyName) => {
+            const companyInvoices = invoicesByCompany.get(companyName)!;
+            const companyTotal = companyInvoices.reduce((sum, inv) => sum + inv.totalCost, 0);
+            return (
+          <div key={companyName} className="bg-white shadow-md rounded-lg overflow-hidden mb-6">
+            <div className="flex justify-between items-center px-5 py-3 bg-slate-50 border-b border-slate-200">
+              <h2 className="font-bold text-slate-800">{companyName}</h2>
+              <span className="text-sm text-slate-600">
+                {companyInvoices.length} invoice{companyInvoices.length === 1 ? "" : "s"} ·{" "}
+                <span className="font-bold text-slate-900">${companyTotal.toFixed(2)}</span>
+              </span>
+            </div>
             <table className="min-w-full leading-normal">
             <thead>
               <tr>
@@ -190,16 +212,16 @@ export default function AdminDashboardClient({ initialInvoices, users }: { initi
                 </tr>
               </thead>
               <tbody>
-                {initialInvoices.map((invoice) => (
+                {companyInvoices.map((invoice) => (
                   <tr key={invoice.id}>
                     <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                       <p className="text-gray-900 whitespace-no-wrap">{invoice.user?.name || invoice.user?.email}</p>
                     </td>
                     <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                      <p className="text-gray-900 whitespace-no-wrap">{format(toCalendarDate(invoice.invoiceDate), "yyyy-MM-dd")}</p>
+                      <p className="text-gray-900 whitespace-no-wrap">{format(new Date(invoice.invoiceDate), "yyyy-MM-dd")}</p>
                     </td>
                     <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                      <p className="text-gray-900 whitespace-no-wrap">{format(toCalendarDate(invoice.dueDate), "yyyy-MM-dd")}</p>
+                      <p className="text-gray-900 whitespace-no-wrap">{format(new Date(invoice.dueDate), "yyyy-MM-dd")}</p>
                     </td>
                     <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                       <span
@@ -241,6 +263,8 @@ export default function AdminDashboardClient({ initialInvoices, users }: { initi
               </tbody>
             </table>
           </div>
+            );
+          })
         )}
       </div>
     </div>

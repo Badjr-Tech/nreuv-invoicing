@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { invoices, users } from "@/db/schema";
-import { desc, eq, and, gte, lte, isNull } from "drizzle-orm";
+import { desc, eq, and, gte, lte } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import InvoicesClient from "./InvoicesClient";
 
@@ -13,7 +13,6 @@ interface InvoicesPageProps {
     filterStatus?: "DRAFT" | "PENDING_MANAGER" | "PENDING_ADMIN" | "APPROVED" | "";
     filterPaymentDateStart?: string;
     filterPaymentDateEnd?: string;
-    showArchived?: string;
   }>;
 }
 
@@ -26,15 +25,9 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
 
   // Await the searchParams promise
   const params = await searchParams;
-  const { filterUser, filterStatus, filterPaymentDateStart, filterPaymentDateEnd, showArchived } = params;
-  const includeArchived = showArchived === "1";
+  const { filterUser, filterStatus, filterPaymentDateStart, filterPaymentDateEnd } = params;
 
   let whereClause = [];
-
-  // Hide archived invoices unless explicitly asked for. Admin-only escape hatch.
-  if (!includeArchived) {
-    whereClause.push(isNull(invoices.archivedAt));
-  }
 
   // Always filter by userId for non-admin/payroll_manager roles
   if (session.user.role === "USER" || session.user.role === "EMPLOYEE") {
@@ -66,16 +59,15 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
 
   const allUsers =
     session.user.role === "ADMIN" || session.user.role === "PAYROLL_MANAGER"
-      ? await db.query.users.findMany()
+      ? await db.query.users.findMany({ where: eq(users.archived, false) })
       : [];
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <InvoicesClient
-        userInvoices={userInvoices}
-        allUsers={allUsers}
-        currentUserRole={session.user.role}
-        showArchived={includeArchived}
+      <InvoicesClient 
+        userInvoices={userInvoices} 
+        allUsers={allUsers} 
+        currentUserRole={session.user.role} 
       />
     </div>
   );

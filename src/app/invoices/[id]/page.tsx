@@ -2,13 +2,19 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { invoices } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import InvoiceClient from "./InvoiceClient";
 
-export default async function InvoiceDetailsPage({ params }: { params: { id: string } }) {
+export const dynamic = "force-dynamic";
+
+export default async function InvoicePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const session = await auth();
 
-  if (!session?.user?.id) {
+  if (!session?.user) {
     redirect("/auth/signin");
   }
 
@@ -17,44 +23,29 @@ export default async function InvoiceDetailsPage({ params }: { params: { id: str
   const invoice = await db.query.invoices.findFirst({
     where: eq(invoices.id, id),
     with: {
-      items: {
-        with: {
-          category: true,
-        },
-      },
       user: true,
+      items: { with: { category: true } },
     },
   });
 
   if (!invoice) {
-    return (
-      <div className="p-8 text-center text-slate-600">
-        <h1 className="text-2xl font-bold mb-4">Invoice Not Found</h1>
-        <p>The requested invoice could not be found.</p>
-      </div>
-    );
+    notFound();
   }
 
-  // Authorization: Only owner, ADMIN, or PAYROLL_MANAGER can view
-  const isOwner = invoice.userId === session.user.id;
-  const isAdminOrManager = session.user.role === "ADMIN" || session.user.role === "PAYROLL_MANAGER";
-
-  if (!isOwner && !isAdminOrManager) {
-    return (
-      <div className="p-8 text-center text-red-600">
-        <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-        <p>You do not have permission to view this invoice.</p>
-      </div>
-    );
+  // Regular users may only view their own invoices
+  if (
+    session.user.role !== "ADMIN" &&
+    session.user.role !== "PAYROLL_MANAGER" &&
+    invoice.userId !== session.user.id
+  ) {
+    redirect("/");
   }
 
   return (
-    <div className="p-4 md:p-8">
-      <InvoiceClient
-        invoice={invoice}
-        currentUserRole={session.user.role as string}
-        currentUserId={session.user.id}
-      />
-    </div>
+    <InvoiceClient
+      invoice={invoice}
+      currentUserRole={session.user.role}
+      currentUserId={session.user.id}
+    />
   );
 }

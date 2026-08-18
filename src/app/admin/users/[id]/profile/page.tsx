@@ -1,42 +1,37 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { users, documents } from "@/db/schema";
-import { redirect } from "next/navigation";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { notFound, redirect } from "next/navigation";
 import AdminUserProfileClient from "./AdminUserProfileClient";
-import { eq, desc } from "drizzle-orm";
 
-export default async function AdminUserSingleProfilePage({
+export const dynamic = "force-dynamic";
+
+export default async function AdminUserProfilePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const session = await auth();
 
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    redirect("/auth/signin"); // Only Admins can view user profiles
+  if (!session?.user || session.user.role !== "ADMIN") {
+    redirect("/auth/signin");
   }
 
+  const { id } = await params;
+
   const user = await db.query.users.findFirst({
-    where: eq(users.id, params.id),
-    with: {
-      documents: {
-        orderBy: [desc(documents.createdAt)],
-        with: {
-          uploadedBy: {
-            columns: {
-              name: true,
-              email: true,
-            },
-          },
-        },
-      },
-    },
+    where: eq(users.id, id),
+    with: { documents: true },
   });
 
   if (!user) {
-    // Handle user not found case
-    redirect("/admin/users"); // Redirect back to user list if not found
+    notFound();
   }
 
-  return <AdminUserProfileClient user={user} currentAdminId={session.user.id} />;
+  return (
+    <div className="p-6 max-w-4xl mx-auto">
+      <AdminUserProfileClient user={user as any} currentAdminId={session.user.id} />
+    </div>
+  );
 }

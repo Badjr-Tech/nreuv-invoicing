@@ -2,16 +2,15 @@
 
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { invoices, invoiceItems, invoiceDeadlineSettings, invoiceRecurrenceEnum, notifications, accountRequests, users, InsertUser, categories, categoryBundles, categoryBundleCategories, userCategoryBundles, onboardingTasks, userOnboardingProgress } from "@/db/schema";
+import { invoices, invoiceItems, invoiceDeadlineSettings, invoiceRecurrenceEnum, notifications, accountRequests, users, InsertUser, categories, categoryBundles, categoryBundleCategories, userCategoryBundles, companies, fixedStaff } from "@/db/schema";
 import bcrypt from "bcryptjs";
 import { and, eq, desc, asc, gte, lte, inArray, notInArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import InvoicePdfDocument from "@/lib/pdf-generator";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { addDays, format } from "date-fns";
-import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail, sendInvoiceIssueEmail, sendAccountRequestConfirmationEmail, sendAdminAccountRequestEmail, sendPasswordResetEmail, sendManagerInvoiceApprovalEmail } from "@/lib/email";
-import { generatePayPeriods, mondayBeforePayment } from "@/lib/schedule-utils";
-import { toCalendarDate } from "@/lib/date-utils";
+import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail } from "@/lib/email";
+import { generatePayPeriods } from "@/lib/schedule-utils";
 import { generatePasswordResetToken } from "@/lib/auth-utils";
 
 // New interfaces for deadline and payment schedule settings
@@ -206,37 +205,6 @@ export async function requestAccount(data: AccountRequestData) {
     message: data.message,
   });
 
-  // Fire both notifications — never let an email failure break the request.
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nreuv-invoicing.vercel.app";
-  const adminLink = `${appUrl}/admin/account-requests`;
-
-  try {
-    await sendAccountRequestConfirmationEmail(data.email, data.name);
-  } catch (err) {
-    console.error("requestAccount: confirmation email failed", err);
-  }
-
-  try {
-    const admins = await db.query.users.findMany({
-      where: eq(users.role, "ADMIN"),
-    });
-    await Promise.all(
-      admins
-        .filter((a) => !!a.email)
-        .map((a) =>
-          sendAdminAccountRequestEmail(
-            a.email!,
-            data.name,
-            data.email,
-            data.message,
-            adminLink,
-          ).catch((err) => console.error("requestAccount: admin email failed", { admin: a.email, err })),
-        ),
-    );
-  } catch (err) {
-    console.error("requestAccount: admin fanout failed", err);
-  }
-
   revalidatePath("/admin/account-requests"); // Revalidate admin page for requests
 
   return { success: true, message: "Account request submitted successfully." };
@@ -306,77 +274,32 @@ export async function approveAccountRequest(requestId: string) {
 
 // Function to deny an account request
 export async function denyAccountRequest(requestId: string) {
-  try {
-    const session = await auth();
+  const session = await auth();
 
-    if (!session?.user?.id || session.user.role !== "ADMIN") {
-      throw new Error("Unauthorized or Forbidden: Only Admin can deny account requests.");
-    }
-
-    const request = await db.query.accountRequests.findFirst({
-      where: eq(accountRequests.id, requestId),
-    });
-
-    if (!request) {
-      throw new Error("Account request not found.");
-    }
-
-    // Idempotent: if it's already DENIED, treat as success rather than
-    // throwing — avoids confusing errors on double-click / stale UI.
-    if (request.status === "DENIED") {
-      return { success: true, message: "Account request was already denied." };
-    }
-
-    if (request.status !== "PENDING") {
-      throw new Error(`Cannot deny a request with status ${request.status}.`);
-    }
-
-    await db
-      .update(accountRequests)
-      .set({ status: "DENIED", processedAt: new Date() })
-      .where(eq(accountRequests.id, requestId));
-
-    // Revalidate, but don't let a downstream render error mask the success
-    // of the DB write or surface as a generic "Server Components render" error.
-    try {
-      revalidatePath("/admin/account-requests");
-    } catch (revalErr) {
-      console.error("denyAccountRequest: revalidatePath failed", revalErr);
-    }
-
-    return { success: true, message: "Account request denied." };
-  } catch (err: any) {
-    // Log the real error to server logs and rethrow a clean message so the
-    // client alert shows something actionable instead of the production
-    // Server Components render placeholder.
-    console.error("denyAccountRequest failed", { requestId, err });
-    throw new Error(err?.message || "Failed to deny account request.");
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can deny account requests.");
   }
-}
 
-// Hard-delete an account request. Removes the row entirely — use for
-// cleanup after deny, or for spam requests.
-export async function deleteAccountRequest(requestId: string) {
-  try {
-    const session = await auth();
+  const request = await db.query.accountRequests.findFirst({
+    where: eq(accountRequests.id, requestId),
+  });
 
-    if (!session?.user?.id || session.user.role !== "ADMIN") {
-      throw new Error("Unauthorized or Forbidden: Only Admin can delete account requests.");
-    }
-
-    await db.delete(accountRequests).where(eq(accountRequests.id, requestId));
-
-    try {
-      revalidatePath("/admin/account-requests");
-    } catch (revalErr) {
-      console.error("deleteAccountRequest: revalidatePath failed", revalErr);
-    }
-
-    return { success: true, message: "Account request deleted." };
-  } catch (err: any) {
-    console.error("deleteAccountRequest failed", { requestId, err });
-    throw new Error(err?.message || "Failed to delete account request.");
+  if (!request) {
+    throw new Error("Account request not found.");
   }
+
+  if (request.status !== "PENDING") {
+    throw new Error("Only pending requests can be denied.");
+  }
+
+  await db
+    .update(accountRequests)
+    .set({ status: "DENIED", processedAt: new Date() })
+    .where(eq(accountRequests.id, requestId));
+
+  revalidatePath("/admin/account-requests"); // Revalidate the admin account requests page
+
+  return { success: true, message: "Account request denied." };
 }
 
 interface NewInvoiceItem {
@@ -413,17 +336,6 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
     throw new Error("Missing required invoice data.");
   }
 
-  // Every line item's description must be substantive — server-side guard
-  // matching the client-side rule so the UI can't be bypassed.
-  for (const item of invoiceData.items) {
-    if ((item.description?.trim().length ?? 0) < 10) {
-      throw new Error("Each item's description must be at least 10 characters.");
-    }
-    if (!item.categoryId) {
-      throw new Error("Each item must have a category assigned.");
-    }
-  }
-
   const userId = session.user.id;
   const userRecord = await db.query.users.findFirst({
     where: eq(users.id, userId),
@@ -444,9 +356,8 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
     orderBy: (settings, { desc }) => [desc(settings.startDate)],
   });
 
-  // Deadline is the Monday of the payroll week (business rule); the offset
-  // days on invoiceDeadlineSettings is no longer consulted.
-  const submissionDeadline = mondayBeforePayment(paymentDate);
+  const submissionOffsetDays = schedule?.submissionOffsetDays ?? 7; // Default to 7 days before Payment Date
+  const submissionDeadline = addDays(paymentDate, -submissionOffsetDays);
   
   let totalHours = 0;
   let totalCost = 0;
@@ -504,15 +415,6 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
     throw new Error("Missing required invoice data for update.");
   }
 
-  for (const item of invoiceData.items) {
-    if ((item.description?.trim().length ?? 0) < 10) {
-      throw new Error("Each item's description must be at least 10 characters.");
-    }
-    if (!item.categoryId) {
-      throw new Error("Each item must have a category assigned.");
-    }
-  }
-
   const userId = session.user.id;
   const userRecord = await db.query.users.findFirst({
     where: eq(users.id, userId),
@@ -553,8 +455,8 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
         orderBy: (settings, { desc }) => [desc(settings.startDate)],
       });
     
-      // Deadline is the Monday of the payroll week (business rule).
-      const submissionDeadline = mondayBeforePayment(paymentDate);
+      const submissionOffsetDays = schedule?.submissionOffsetDays ?? 7; // Default to 7 days before Payment Date
+      const submissionDeadline = addDays(paymentDate, -submissionOffsetDays);
       
       let newTotalHours = 0;
       let newTotalCost = 0;
@@ -663,23 +565,6 @@ export async function updateInvoiceStatus(invoiceId: string, newStatus: "PENDING
     }
   }
 
-  // Block any forward transition (submit/pre-approve/approve) if a line
-  // item still has no category — handles legacy invoices created before
-  // the category rule was added.
-  if (newStatus === "PENDING_MANAGER" || newStatus === "PENDING_ADMIN" || newStatus === "APPROVED") {
-    const items = await db
-      .select({ id: invoiceItems.id, categoryId: invoiceItems.categoryId })
-      .from(invoiceItems)
-      .where(eq(invoiceItems.invoiceId, invoiceId));
-
-    const uncategorizedCount = items.filter((it) => !it.categoryId).length;
-    if (uncategorizedCount > 0) {
-      throw new Error(
-        `Cannot proceed: ${uncategorizedCount} line item${uncategorizedCount === 1 ? "" : "s"} ${uncategorizedCount === 1 ? "is" : "are"} missing a category. Open the invoice in edit mode and assign one to every row.`,
-      );
-    }
-  }
-
   // Define allowed status transitions
   const allowedTransitions: Record<string, string[]> = {
     DRAFT: ["PENDING_MANAGER", "PENDING_ADMIN"], // PENDING_ADMIN if no manager
@@ -697,84 +582,27 @@ export async function updateInvoiceStatus(invoiceId: string, newStatus: "PENDING
   if (newStatus === "APPROVED") {
     updateData.approvedDate = new Date();
   } else if (newStatus === "PENDING_MANAGER" || newStatus === "PENDING_ADMIN") {
-    // Set submittedDate once — on the very first submission out of DRAFT.
+    // Only set submittedDate if it's the first time submitting
     if (invoiceRecord.status === "DRAFT") {
       updateData.submittedDate = new Date();
-    }
-  }
-
-  // Email fan-out on submit-related transitions. Runs in try/catch so a
-  // delivery failure never blocks the DB write.
-  //
-  //   DRAFT → PENDING_MANAGER      → notify assigned manager (6hr SLA) + admins (informational)
-  //   DRAFT → PENDING_ADMIN        → notify admins (action needed)
-  //   PENDING_MANAGER → PENDING_ADMIN → notify admins (manager pre-approved, now your turn)
-  if (newStatus === "PENDING_MANAGER" || newStatus === "PENDING_ADMIN") {
-    try {
-      const userName = invoiceRecord.user?.name || invoiceRecord.user?.email || "Unknown User";
-      const userEmail = invoiceRecord.user?.email || "";
-      const invoiceNumber = invoiceRecord.invoiceNumber || invoiceRecord.id.substring(0, 8);
-      const amount = Number(invoiceRecord.totalCost || 0);
-      const submittedDate =
-        updateData.submittedDate ?? invoiceRecord.submittedDate ?? new Date();
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nreuv-invoicing.vercel.app';
-      const invoiceLink = `${appUrl}/invoices/${invoiceRecord.id}`;
-
-      // Every admin gets pinged on every submit-related transition so
-      // they always see activity and can act when it's PENDING_ADMIN.
-      const admins = await db.query.users.findMany({
-        where: eq(users.role, "ADMIN"),
-      });
-      for (const admin of admins) {
-        if (!admin.email) continue;
-        try {
-          await sendAdminInvoiceSubmittedEmail(
-            admin.email,
-            userName,
-            invoiceNumber,
-            userEmail,
-            amount,
-            submittedDate,
-            invoiceLink,
-          );
-        } catch (err) {
-          console.error("admin notify failed", { admin: admin.email, err });
-        }
-      }
-
-      // If it's the contractor's first stop with a manager, page the manager
-      // directly with the 6-hour SLA.
-      if (newStatus === "PENDING_MANAGER" && invoiceRecord.user?.managerId) {
-        const manager = await db.query.users.findFirst({
-          where: eq(users.id, invoiceRecord.user.managerId),
+      
+      // Notify admins
+      try {
+        const admins = await db.query.users.findMany({
+          where: eq(users.role, "ADMIN"),
         });
-        if (manager?.email) {
-          try {
-            // Approval deadline is Tuesday of the payroll week at 6:00 PM
-            // (Monday deadline + 1 day). Same weekday as the deferral
-            // cutoff, one hour later.
-            const approvalDeadlineDate = addDays(
-              mondayBeforePayment(new Date(invoiceRecord.invoiceDate)),
-              1,
-            );
-            const approvalDeadline = `${format(approvalDeadlineDate, "EEEE, MMM d")} at 6:00 PM`;
-            await sendManagerInvoiceApprovalEmail(
-              manager.email,
-              manager.name || manager.email,
-              userName,
-              invoiceNumber,
-              amount,
-              submittedDate,
-              invoiceLink,
-              approvalDeadline,
-            );
-          } catch (err) {
-            console.error("manager notify failed", { manager: manager.email, err });
+        
+        const userName = invoiceRecord.user?.name || invoiceRecord.user?.email || "Unknown User";
+        const invoiceNumber = invoiceRecord.invoiceNumber || invoiceRecord.id.substring(0, 8);
+        
+        for (const admin of admins) {
+          if (admin.email) {
+            await sendAdminInvoiceSubmittedEmail(admin.email, userName, invoiceNumber);
           }
         }
+      } catch (error) {
+        console.error("Failed to send admin notification email:", error);
       }
-    } catch (error) {
-      console.error("Failed to send submit-transition notifications:", error);
     }
   }
 
@@ -828,168 +656,6 @@ export async function deferInvoice(invoiceId: string) {
   revalidatePath(`/invoices/${invoiceId}`);
 }
 
-// Admin / payroll-manager flow: flag an invoice as needing changes.
-// Emails the contractor with the reviewer's notes, drops an in-app
-// notification, and (optionally) resets the invoice to DRAFT.
-export async function requestInvoiceChanges(
-  invoiceId: string,
-  message: string,
-  sendBackToDraft: boolean,
-) {
-  const session = await auth();
-
-  if (
-    !session?.user?.id ||
-    (session.user.role !== "ADMIN" && session.user.role !== "PAYROLL_MANAGER")
-  ) {
-    throw new Error("Forbidden: Only Admins or Payroll Managers can request changes.");
-  }
-
-  const trimmed = message.trim();
-  if (trimmed.length < 10) {
-    throw new Error("Please describe the issue in at least 10 characters.");
-  }
-
-  const invoice = await db.query.invoices.findFirst({
-    where: eq(invoices.id, invoiceId),
-    with: { user: true },
-  });
-
-  if (!invoice) {
-    throw new Error("Invoice not found.");
-  }
-  if (!invoice.user?.email) {
-    throw new Error("Invoice owner has no email on file.");
-  }
-
-  // Payroll managers can only request changes on invoices for their own reports.
-  if (
-    session.user.role === "PAYROLL_MANAGER" &&
-    invoice.user.managerId !== session.user.id
-  ) {
-    throw new Error("Forbidden: You are not the manager for this employee.");
-  }
-
-  const reviewerName = session.user.name || session.user.email || "A reviewer";
-  const ownerName = invoice.user.name || invoice.user.email || "Contractor";
-  const invoiceNumber = invoice.invoiceNumber || invoice.id.substring(0, 8);
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nreuv-invoicing.vercel.app";
-  const invoiceLink = `${appUrl}/invoices/${invoice.id}`;
-
-  // 1) Email
-  try {
-    await sendInvoiceIssueEmail(
-      invoice.user.email,
-      ownerName,
-      reviewerName,
-      invoiceNumber,
-      trimmed,
-      invoiceLink,
-    );
-  } catch (err) {
-    console.error("requestInvoiceChanges: email failed", err);
-    // Don't abort the action — the in-app notification still gives them a paper trail.
-  }
-
-  // 2) In-app notification
-  try {
-    await db.insert(notifications).values({
-      userId: invoice.userId,
-      message: `${reviewerName} requested changes on Invoice #${invoiceNumber}: ${trimmed.length > 140 ? trimmed.substring(0, 137) + "…" : trimmed}`,
-    });
-  } catch (err) {
-    console.error("requestInvoiceChanges: notification failed", err);
-  }
-
-  // 3) Optionally reset to DRAFT so the contractor can edit and re-submit.
-  if (sendBackToDraft) {
-    await db.update(invoices).set({ status: "DRAFT" }).where(eq(invoices.id, invoiceId));
-  }
-
-  revalidatePath("/");
-  revalidatePath(`/invoices/${invoiceId}`);
-  revalidatePath("/notifications");
-
-  return { success: true };
-}
-
-// Admin-only soft-archive. Sets archivedAt timestamp; reversible via
-// unarchiveInvoice. Archived invoices are hidden from default list views.
-export async function archiveInvoice(invoiceId: string) {
-  const session = await auth();
-
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can archive invoices.");
-  }
-
-  const [existing] = await db
-    .select({ id: invoices.id, archivedAt: invoices.archivedAt })
-    .from(invoices)
-    .where(eq(invoices.id, invoiceId))
-    .limit(1);
-
-  if (!existing) {
-    throw new Error("Invoice not found.");
-  }
-  if (existing.archivedAt) {
-    return { success: true, message: "Invoice was already archived." };
-  }
-
-  await db.update(invoices).set({ archivedAt: new Date() }).where(eq(invoices.id, invoiceId));
-
-  revalidatePath("/");
-  revalidatePath("/invoices");
-  revalidatePath(`/invoices/${invoiceId}`);
-  return { success: true, message: "Invoice archived." };
-}
-
-export async function unarchiveInvoice(invoiceId: string) {
-  const session = await auth();
-
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can unarchive invoices.");
-  }
-
-  await db.update(invoices).set({ archivedAt: null }).where(eq(invoices.id, invoiceId));
-
-  revalidatePath("/");
-  revalidatePath("/invoices");
-  revalidatePath(`/invoices/${invoiceId}`);
-  return { success: true, message: "Invoice unarchived." };
-}
-
-// Admin-only hard delete. Removes the invoice and its line items.
-export async function deleteInvoice(invoiceId: string) {
-  const session = await auth();
-
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can delete invoices.");
-  }
-
-  const invoiceRecord = await db.query.invoices.findFirst({
-    where: eq(invoices.id, invoiceId),
-  });
-
-  if (!invoiceRecord) {
-    throw new Error("Invoice not found.");
-  }
-
-  // No ON DELETE CASCADE on invoice_item → invoice, so delete items first.
-  // The neon-http driver doesn't support transactions, so we do this
-  // sequentially and log clearly if the second step fails.
-  try {
-    await db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, invoiceId));
-    await db.delete(invoices).where(eq(invoices.id, invoiceId));
-  } catch (err) {
-    console.error("deleteInvoice failed", { invoiceId, err });
-    throw new Error("Failed to delete invoice. Please try again.");
-  }
-
-  revalidatePath("/");
-  revalidatePath("/invoices");
-  revalidatePath("/my-invoices");
-}
-
 export async function generateInvoicePdf(invoiceId: string) {
   const session = await auth();
 
@@ -1001,11 +667,7 @@ export async function generateInvoicePdf(invoiceId: string) {
     where: eq(invoices.id, invoiceId),
     with: {
       user: true,
-      items: {
-        with: {
-          category: true,
-        },
-      },
+      items: true,
     },
   });
 
@@ -1018,7 +680,7 @@ export async function generateInvoicePdf(invoiceId: string) {
     throw new Error("Invoice data is incomplete for PDF generation.");
   }
 
-  const pdfBuffer = await renderToBuffer(InvoicePdfDocument({ invoice: invoiceRecord as any }));
+  const pdfBuffer = await renderToBuffer(InvoicePdfDocument({ invoice: invoiceRecord as any })); 
 
   return pdfBuffer.toString('base64');
 }
@@ -1091,13 +753,13 @@ export async function generateInvoicesCsv(searchParams?: {
 
   const rows = filteredAndSortedInvoices.map((invoice) => [
     invoice.user?.name || invoice.user?.email || "Unknown",
-    format(toCalendarDate(invoice.invoiceDate), "yyyy-MM-dd"),
-    format(toCalendarDate(invoice.dueDate), "yyyy-MM-dd"),
+    format(new Date(invoice.invoiceDate), "yyyy-MM-dd"),
+    format(new Date(invoice.dueDate), "yyyy-MM-dd"),
     invoice.status,
     invoice.totalHours,
     invoice.totalCost.toFixed(2),
-    invoice.submittedDate ? format(toCalendarDate(invoice.submittedDate), "yyyy-MM-dd") : "",
-    invoice.approvedDate ? format(toCalendarDate(invoice.approvedDate), "yyyy-MM-dd") : "",
+    invoice.submittedDate ? format(new Date(invoice.submittedDate), "yyyy-MM-dd") : "",
+    invoice.approvedDate ? format(new Date(invoice.approvedDate), "yyyy-MM-dd") : "",
   ]);
 
   const csvContent = [
@@ -1174,30 +836,6 @@ export async function resetUserPassword(userId: string, newPassword: string) {
   const hashedPassword = await bcrypt.hash(newPassword, 10);
   await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
   revalidatePath("/admin/users");
-}
-
-/**
- * Admin-triggered password reset via magic link. Generates a 24hr token,
- * emails the user a link to /auth/set-password. Does NOT change the
- * password until they click through and set a new one themselves.
- */
-export async function sendPasswordResetLink(userId: string) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized or Forbidden: Only Admin can trigger a password reset.");
-  }
-
-  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
-  if (!user) throw new Error("User not found.");
-  if (!user.email) throw new Error("This user has no email on file.");
-
-  const token = await generatePasswordResetToken(user.id);
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nreuv-invoicing.vercel.app";
-  const resetLink = `${appUrl}/auth/set-password?token=${token}`;
-
-  await sendPasswordResetEmail(user.email, user.name || "", resetLink);
-  revalidatePath("/admin/users");
-  return { success: true, message: `Reset link sent to ${user.email}.` };
 }
 
 export async function resetOwnPassword(currentPassword: string, newPassword: string) {
@@ -1379,6 +1017,127 @@ export async function assignBundleToUser(userId: string, bundleId: string) {
   revalidatePath("/admin/users"); // Revalidate user management page
 }
 
+// ---------------- Companies ----------------
+
+async function requireAdmin() {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized or Forbidden: Only Admin can perform this action.");
+  }
+  return session;
+}
+
+export async function createCompany(name: string) {
+  await requireAdmin();
+  if (!name.trim()) {
+    throw new Error("Company name cannot be empty.");
+  }
+  await db.insert(companies).values({ name: name.trim() });
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin/users");
+  revalidatePath("/");
+}
+
+export async function updateCompany(id: string, name: string) {
+  await requireAdmin();
+  if (!name.trim()) {
+    throw new Error("Company name cannot be empty.");
+  }
+  await db.update(companies).set({ name: name.trim() }).where(eq(companies.id, id));
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin/users");
+  revalidatePath("/");
+}
+
+export async function deleteCompany(id: string) {
+  await requireAdmin();
+  // Employees/fixed staff referencing this company are set to "no company" (onDelete: set null)
+  await db.delete(companies).where(eq(companies.id, id));
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin/users");
+  revalidatePath("/");
+}
+
+export async function updateUserCompany(userId: string, companyId: string | null) {
+  await requireAdmin();
+  await db.update(users).set({ companyId }).where(eq(users.id, userId));
+  revalidatePath("/admin/users");
+  revalidatePath("/");
+}
+
+// ---------------- Archiving users ----------------
+// Archiving hides a user everywhere and blocks their sign-in, but keeps all of
+// their invoices, documents, and history in the database.
+
+export async function archiveUser(userId: string) {
+  const session = await requireAdmin();
+  if (session.user.id === userId) {
+    throw new Error("You cannot archive your own account.");
+  }
+  const target = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!target) throw new Error("User not found.");
+  if (target.role === "ADMIN") {
+    const [{ count: adminCount }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(and(eq(users.role, "ADMIN"), eq(users.archived, false)));
+    if (Number(adminCount) <= 1) {
+      throw new Error("Cannot archive the last active admin.");
+    }
+  }
+  await db.update(users).set({ archived: true, archivedAt: new Date() }).where(eq(users.id, userId));
+  revalidatePath("/admin/users");
+  revalidatePath("/");
+}
+
+export async function unarchiveUser(userId: string) {
+  await requireAdmin();
+  await db.update(users).set({ archived: false, archivedAt: null }).where(eq(users.id, userId));
+  revalidatePath("/admin/users");
+  revalidatePath("/");
+}
+
+// ---------------- Fixed monthly staff ----------------
+
+export async function createFixedStaff(data: { name: string; companyId?: string | null; monthlyAmount: number }) {
+  await requireAdmin();
+  if (!data.name.trim()) {
+    throw new Error("Staff name cannot be empty.");
+  }
+  if (data.monthlyAmount < 0) {
+    throw new Error("Monthly amount cannot be negative.");
+  }
+  await db.insert(fixedStaff).values({
+    name: data.name.trim(),
+    companyId: data.companyId || null,
+    monthlyAmount: data.monthlyAmount,
+  });
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin/payroll");
+}
+
+export async function updateFixedStaff(id: string, data: { name?: string; companyId?: string | null; monthlyAmount?: number; active?: boolean }) {
+  await requireAdmin();
+  if (data.monthlyAmount !== undefined && data.monthlyAmount < 0) {
+    throw new Error("Monthly amount cannot be negative.");
+  }
+  await db.update(fixedStaff).set({
+    ...(data.name !== undefined ? { name: data.name.trim() } : {}),
+    ...(data.companyId !== undefined ? { companyId: data.companyId || null } : {}),
+    ...(data.monthlyAmount !== undefined ? { monthlyAmount: data.monthlyAmount } : {}),
+    ...(data.active !== undefined ? { active: data.active } : {}),
+  }).where(eq(fixedStaff.id, id));
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin/payroll");
+}
+
+export async function deleteFixedStaff(id: string) {
+  await requireAdmin();
+  await db.delete(fixedStaff).where(eq(fixedStaff.id, id));
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin/payroll");
+}
+
 export async function unassignBundleFromUser(userId: string, bundleId: string) {
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "ADMIN") {
@@ -1391,56 +1150,4 @@ export async function unassignBundleFromUser(userId: string, bundleId: string) {
     )
   );
   revalidatePath("/admin/users"); // Revalidate user management page
-}
-
-// ─── Onboarding checklist ───────────────────────────────────────────────
-export async function toggleOnboardingTask(taskId: string, completed: boolean) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
-  }
-  const userId = session.user.id;
-
-  // Verify the task exists (cheap guard against arbitrary IDs).
-  const [task] = await db
-    .select({ id: onboardingTasks.id })
-    .from(onboardingTasks)
-    .where(eq(onboardingTasks.id, taskId))
-    .limit(1);
-  if (!task) {
-    throw new Error("Task not found");
-  }
-
-  if (completed) {
-    // Idempotent insert — ignore if already marked.
-    const existing = await db
-      .select({ id: userOnboardingProgress.id })
-      .from(userOnboardingProgress)
-      .where(
-        and(
-          eq(userOnboardingProgress.userId, userId),
-          eq(userOnboardingProgress.taskId, taskId),
-        ),
-      )
-      .limit(1);
-    if (existing.length === 0) {
-      await db.insert(userOnboardingProgress).values({
-        userId,
-        taskId,
-        completedAt: new Date(),
-      });
-    }
-  } else {
-    await db
-      .delete(userOnboardingProgress)
-      .where(
-        and(
-          eq(userOnboardingProgress.userId, userId),
-          eq(userOnboardingProgress.taskId, taskId),
-        ),
-      );
-  }
-
-  revalidatePath("/onboarding");
-  revalidatePath("/");
 }
