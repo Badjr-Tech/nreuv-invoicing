@@ -64,7 +64,7 @@ export default function PayrollClient({
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Run Payroll</h1>
           <p className="text-sm text-slate-500 mt-1">
-            All invoices for one payment date, grouped by company, plus fixed monthly staff.
+            All invoices for one payment date, grouped by company, plus fixed-pay staff for the period.
           </p>
         </div>
         <div className="flex items-end gap-2">
@@ -102,7 +102,7 @@ export default function PayrollClient({
           <p className="text-2xl font-bold text-slate-900 mt-1">${invoiceTotal.toFixed(2)}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
-          <p className="text-xs font-semibold text-slate-500 uppercase">Fixed Monthly Staff ({fixedStaff.length})</p>
+          <p className="text-xs font-semibold text-slate-500 uppercase">Fixed-Pay Staff ({fixedStaff.length})</p>
           <p className="text-2xl font-bold text-slate-900 mt-1">${fixedTotal.toFixed(2)}</p>
         </div>
         <div className="bg-nreuv-primary rounded-xl shadow-sm p-4 text-white">
@@ -152,7 +152,7 @@ export default function PayrollClient({
                   {g.staff.map((m) => (
                     <tr key={m.id} className="border-b border-slate-50 bg-slate-50/50">
                       <td className="px-5 py-3 font-medium text-slate-800">{m.name}</td>
-                      <td className="px-5 py-3 text-slate-500">Fixed monthly staff</td>
+                      <td className="px-5 py-3 text-slate-500">Fixed pay per period</td>
                       <td className="px-5 py-3">
                         <span className="text-xs font-semibold px-2 py-1 rounded-full bg-slate-200 text-slate-700">FIXED</span>
                       </td>

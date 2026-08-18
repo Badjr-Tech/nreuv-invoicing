@@ -61,7 +61,7 @@ export default function FixedStaffSection({
   };
 
   const handleDelete = async (id: string, staffName: string) => {
-    if (!confirm(`Remove "${staffName}" from fixed monthly staff?`)) return;
+    if (!confirm(`Remove "${staffName}" from fixed-pay staff?`)) return;
     setBusy(true);
     try {
       await deleteFixedStaff(id);
@@ -75,10 +75,10 @@ export default function FixedStaffSection({
 
   return (
     <section className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
-      <h2 className="text-xl font-bold text-slate-900 mb-1">Fixed Monthly Staff</h2>
+      <h2 className="text-xl font-bold text-slate-900 mb-1">Fixed-Pay Staff</h2>
       <p className="text-sm text-slate-500 mb-4">
-        Staff paid a fixed amount each month. They don&apos;t submit invoices, but their amount is
-        automatically included in every payroll run.
+        Staff paid a fixed amount each pay period. They don&apos;t submit invoices, but their amount
+        is automatically included in every payroll run.
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-4">
@@ -105,7 +105,7 @@ export default function FixedStaffSection({
           step="0.01"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder="Monthly amount ($)"
+          placeholder="Amount per pay period ($)"
           className="border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-nreuv-accent outline-none"
         />
         <button
@@ -125,7 +125,7 @@ export default function FixedStaffSection({
             <tr className="text-left text-xs font-semibold text-slate-500 uppercase border-b border-slate-200">
               <th className="py-2 pr-4">Name</th>
               <th className="py-2 pr-4">Company</th>
-              <th className="py-2 pr-4">Monthly Amount</th>
+              <th className="py-2 pr-4">Amount / Pay Period</th>
               <th className="py-2 pr-4">In Payroll?</th>
               <th className="py-2"></th>
             </tr>
