@@ -23,12 +23,13 @@ export default async function PayrollPage({
   // Every payment date that has invoices, for the date picker dropdown.
   // Compare calendar dates in SQL so results don't depend on the server's timezone.
   const dateExpr = sql<string>`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD')`;
+  // Dropdown only shows pay periods from the last 3 months; the date picker reaches older ones
   const allDates = await db
     .select({ day: dateExpr })
     .from(invoices)
+    .where(sql`${invoices.invoiceDate} >= now() - interval '3 months'`)
     .groupBy(dateExpr)
-    .orderBy(desc(dateExpr))
-    .limit(10); // only the most recent pay periods in the dropdown; the date picker reaches older ones
+    .orderBy(desc(dateExpr));
 
   const selectedDate =
     date ||
