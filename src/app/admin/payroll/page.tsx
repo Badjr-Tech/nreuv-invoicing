@@ -27,7 +27,8 @@ export default async function PayrollPage({
     .select({ day: dateExpr })
     .from(invoices)
     .groupBy(dateExpr)
-    .orderBy(desc(dateExpr));
+    .orderBy(desc(dateExpr))
+    .limit(10); // only the most recent pay periods in the dropdown; the date picker reaches older ones
 
   const selectedDate =
     date ||
