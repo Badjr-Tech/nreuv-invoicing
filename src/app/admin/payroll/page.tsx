@@ -45,7 +45,7 @@ export default async function PayrollPage({
     ? generatePayPeriods(schedule as any, 200)
         .map((p) => toEasternDay(p.invoiceDate))
         .filter((day) => day >= today)
-        .slice(0, 3)
+        .slice(0, 2)
     : [];
 
   const dropdownDays = [...new Set([...upcomingDays, ...allDates.map((d) => d.day)])]

@@ -62,7 +62,7 @@ export default async function EditInvoicePage({ params }: { params: { id: string
     where: (settings, { isNotNull }) => isNotNull(settings.startDate),
     orderBy: (settings, { desc }) => [desc(settings.startDate)], // Order to get the latest/most relevant
   });
-  const payPeriods = globalSchedule ? generateUpcomingPayPeriods(globalSchedule as any, 12) : []; // Next 12 periods from today
+  const payPeriods = globalSchedule ? generateUpcomingPayPeriods(globalSchedule as any, 2) : []; // Always the next 2 pay periods
 
   const userRecord = await db.query.users.findFirst({
     where: eq(users.id, session.user.id),
