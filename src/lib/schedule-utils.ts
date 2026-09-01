@@ -16,6 +16,16 @@ export interface PayPeriod {
   label: string; // The label will show Payment Date (Coverage Start - Coverage End)
 }
 
+// Upcoming pay periods only (payment date today or later), regardless of how
+// long ago the schedule started.
+export function generateUpcomingPayPeriods(schedule: GlobalSchedule, count: number = 12): PayPeriod[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return generatePayPeriods(schedule, 500)
+    .filter((p) => p.invoiceDate >= today)
+    .slice(0, count);
+}
+
 export function generatePayPeriods(schedule: GlobalSchedule, count: number = 10): PayPeriod[] {
   if (!schedule.startDate) {
     return [];

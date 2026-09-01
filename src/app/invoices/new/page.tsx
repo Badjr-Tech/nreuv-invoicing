@@ -4,7 +4,7 @@ import { categories, users, invoiceDeadlineSettings, invoices } from "@/db/schem
 import { redirect } from "next/navigation";
 import NewInvoiceClient from "./NewInvoiceClient";
 import { eq, desc } from "drizzle-orm";
-import { generatePayPeriods, GlobalSchedule } from "@/lib/schedule-utils";
+import { generateUpcomingPayPeriods, GlobalSchedule } from "@/lib/schedule-utils";
 
 export default async function NewInvoicePage() {
   const session = await auth();
@@ -22,7 +22,7 @@ export default async function NewInvoicePage() {
     where: (settings, { isNotNull }) => isNotNull(settings.startDate),
     orderBy: (settings, { desc }) => [desc(settings.startDate)], // Order to get the latest/most relevant
   });
-  const payPeriods = globalSchedule ? generatePayPeriods(globalSchedule as any, 12) : []; // Generate next 12 periods
+  const payPeriods = globalSchedule ? generateUpcomingPayPeriods(globalSchedule as any, 12) : []; // Next 12 periods from today
 
   const userRecord = await db.query.users.findFirst({
     where: eq(users.id, session.user.id),

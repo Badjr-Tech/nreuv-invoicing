@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { invoices, fixedStaff } from "@/db/schema";
 import { desc, eq, sql } from "drizzle-orm";
+import { generatePayPeriods } from "@/lib/schedule-utils";
 import { redirect } from "next/navigation";
 import PayrollClient from "./PayrollClient";
 
@@ -31,9 +32,30 @@ export default async function PayrollPage({
     .groupBy(dateExpr)
     .orderBy(desc(dateExpr));
 
+  // Also include upcoming payment dates from the payroll schedule, even before
+  // any invoices exist for them, so the next period is always in the dropdown.
+  const schedule = await db.query.invoiceDeadlineSettings.findFirst({
+    where: (settings, { isNotNull }) => isNotNull(settings.startDate),
+    orderBy: (settings, { desc }) => [desc(settings.startDate)],
+  });
+  const toEasternDay = (d: Date) =>
+    d.toLocaleDateString("en-CA", { timeZone: "America/New_York" }); // YYYY-MM-DD
+  const today = toEasternDay(new Date());
+  const upcomingDays = schedule
+    ? generatePayPeriods(schedule as any, 200)
+        .map((p) => toEasternDay(p.invoiceDate))
+        .filter((day) => day >= today)
+        .slice(0, 3)
+    : [];
+
+  const dropdownDays = [...new Set([...upcomingDays, ...allDates.map((d) => d.day)])]
+    .sort()
+    .reverse();
+
+  // Default to the nearest upcoming pay period; fall back to the latest invoiced date
+  const nextPeriod = upcomingDays[0];
   const selectedDate =
-    date ||
-    (allDates.length > 0 ? allDates[0].day : new Date().toISOString().slice(0, 10));
+    date || nextPeriod || (allDates.length > 0 ? allDates[0].day : today);
 
   const dayInvoices = await db.query.invoices.findMany({
     where: sql`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD') = ${selectedDate}`,
@@ -49,7 +71,7 @@ export default async function PayrollPage({
   return (
     <PayrollClient
       selectedDate={selectedDate}
-      availableDates={allDates.map((d) => d.day)}
+      availableDates={dropdownDays}
       invoices={dayInvoices as any}
       fixedStaff={activeFixedStaff as any}
     />
