@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import AnalyticsClient from "./AnalyticsClient";
 import { db } from "@/db";
-import { invoices, invoiceItems, users, categories } from "@/db/schema";
+import { invoices, invoiceItems, users, categories, companies } from "@/db/schema";
 import { sql, sum, count, desc, asc, eq, and } from "drizzle-orm";
 import { format } from "date-fns";
 
@@ -74,11 +74,32 @@ export default async function AdminAnalyticsPage() {
     avgInvoice: row.invoiceCount ? Number(row.totalAmount || 0) / Number(row.invoiceCount) : 0,
   }));
 
+  // Spending per company (approved invoices, via each invoice's user)
+  const companyBreakdownRaw = await db
+    .select({
+      companyName: companies.name,
+      totalAmount: sum(invoices.totalCost),
+      totalHours: sum(invoices.totalHours),
+    })
+    .from(invoices)
+    .leftJoin(users, eq(invoices.userId, users.id))
+    .leftJoin(companies, eq(users.companyId, companies.id))
+    .where(eq(invoices.status, "APPROVED"))
+    .groupBy(companies.name)
+    .orderBy(desc(sum(invoices.totalCost)));
+
+  const companyBreakdown = companyBreakdownRaw.map((row) => ({
+    company: row.companyName || "No Company",
+    totalAmount: Number(row.totalAmount || 0),
+    totalHours: Number(row.totalHours || 0),
+  }));
+
   return (
     <AnalyticsClient
       invoiceMetrics={invoiceMetrics}
       categoryBreakdown={categoryBreakdown}
       userPerformance={userPerformance}
+      companyBreakdown={companyBreakdown}
     />
   );
 }
