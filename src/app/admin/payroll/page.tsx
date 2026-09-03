@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { invoices, fixedStaff } from "@/db/schema";
+import { invoices, fixedStaff, payrollRuns } from "@/db/schema";
 import { desc, eq, sql } from "drizzle-orm";
 import { generatePayPeriods } from "@/lib/schedule-utils";
 import { redirect } from "next/navigation";
@@ -15,7 +15,7 @@ export default async function PayrollPage({
 }) {
   const session = await auth();
 
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "PAYROLL_APPROVER")) {
     redirect("/auth/signin");
   }
 
@@ -68,12 +68,28 @@ export default async function PayrollPage({
     with: { company: true },
   });
 
+  const run = await db.query.payrollRuns.findFirst({
+    where: eq(payrollRuns.payDate, selectedDate),
+    with: { submittedBy: true, approvedBy: true },
+  });
+
   return (
     <PayrollClient
       selectedDate={selectedDate}
       availableDates={dropdownDays}
       invoices={dayInvoices as any}
       fixedStaff={activeFixedStaff as any}
+      run={run ? {
+        status: run.status,
+        grandTotal: run.grandTotal,
+        notes: run.notes,
+        approvalDeadline: run.approvalDeadline?.toISOString() ?? null,
+        submittedByName: run.submittedBy?.name ?? null,
+        submittedAt: run.submittedAt.toISOString(),
+        approvedByName: run.approvedBy?.name ?? null,
+        approvedAt: run.approvedAt?.toISOString() ?? null,
+      } : null}
+      currentUserRole={session.user.role}
     />
   );
 }

@@ -2,14 +2,14 @@
 
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { invoices, invoiceItems, invoiceDeadlineSettings, invoiceRecurrenceEnum, notifications, accountRequests, users, InsertUser, categories, categoryBundles, categoryBundleCategories, userCategoryBundles, companies, fixedStaff } from "@/db/schema";
+import { invoices, invoiceItems, invoiceDeadlineSettings, invoiceRecurrenceEnum, notifications, accountRequests, users, InsertUser, categories, categoryBundles, categoryBundleCategories, userCategoryBundles, companies, fixedStaff, payrollRuns } from "@/db/schema";
 import bcrypt from "bcryptjs";
 import { and, eq, desc, asc, gte, lte, inArray, notInArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import InvoicePdfDocument from "@/lib/pdf-generator";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { addDays, format } from "date-fns";
-import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail } from "@/lib/email";
+import { sendWelcomeEmail, sendAdminInvoiceSubmittedEmail, sendPayrollApprovalRequestEmail } from "@/lib/email";
 import { generatePayPeriods } from "@/lib/schedule-utils";
 import { generatePasswordResetToken } from "@/lib/auth-utils";
 
@@ -770,7 +770,7 @@ export async function generateInvoicesCsv(searchParams?: {
   return csvContent;
 }
 
-export async function updateUserRole(userId: string, newRole: "ADMIN" | "PAYROLL_MANAGER" | "USER" | "EMPLOYEE") {
+export async function updateUserRole(userId: string, newRole: "ADMIN" | "PAYROLL_MANAGER" | "USER" | "EMPLOYEE" | "PAYROLL_APPROVER") {
   const session = await auth();
 
   if (!session?.user?.id || session.user.role !== "ADMIN") {
@@ -1095,6 +1095,148 @@ export async function unarchiveUser(userId: string) {
   await db.update(users).set({ archived: false, archivedAt: null }).where(eq(users.id, userId));
   revalidatePath("/admin/users");
   revalidatePath("/");
+}
+
+// ---------------- Payroll run: submit for approval, then approve ----------------
+// Step 1: an ADMIN compiles the run (approved hourly invoices + fixed-pay staff),
+// adds a note, and submits it. Every PAYROLL_APPROVER gets an email.
+// Step 2: a PAYROLL_APPROVER reviews the run and approves it — due by 3 PM
+// Eastern on the Thursday before the pay date.
+
+function approvalDeadlineFor(payDate: string): Date {
+  // Walk back from the pay date to the previous Thursday, 3:00 PM Eastern.
+  // (America/New_York is UTC-4 in summer, UTC-5 in winter; check the offset via Intl.)
+  const d = new Date(`${payDate}T12:00:00Z`);
+  do {
+    d.setUTCDate(d.getUTCDate() - 1);
+  } while (d.getUTCDay() !== 4); // 4 = Thursday
+  const day = d.toISOString().slice(0, 10);
+  const probe = new Date(`${day}T15:00:00Z`);
+  const easternHour = Number(
+    new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", hour12: false }).format(probe)
+  );
+  const offsetHours = 15 - easternHour; // 4 (EDT) or 5 (EST)
+  return new Date(`${day}T${String(15 + offsetHours).padStart(2, "0")}:00:00Z`);
+}
+
+export async function submitPayrollRun(payDate: string, notes: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Forbidden: Only an Admin can submit a payroll run for approval.");
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(payDate)) {
+    throw new Error("Invalid pay date.");
+  }
+
+  const existing = await db.query.payrollRuns.findFirst({
+    where: eq(payrollRuns.payDate, payDate),
+  });
+  if (existing) {
+    throw new Error(
+      existing.status === "APPROVED"
+        ? "This payroll run has already been approved."
+        : "This payroll run has already been submitted and is awaiting approval."
+    );
+  }
+
+  const dayMatch = sql`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD') = ${payDate}`;
+  const dayInvoices = await db.query.invoices.findMany({ where: dayMatch });
+  const includedInvoices = dayInvoices.filter((i) => i.status !== "DRAFT");
+
+  const invoiceTotal = includedInvoices.reduce((s, i) => s + i.totalCost, 0);
+  const activeStaff = await db.query.fixedStaff.findMany({ where: eq(fixedStaff.active, true) });
+  const fixedStaffTotal = activeStaff.reduce((s, m) => s + m.monthlyAmount, 0);
+  const deadline = approvalDeadlineFor(payDate);
+
+  await db.insert(payrollRuns).values({
+    payDate,
+    status: "PENDING_APPROVAL",
+    invoiceTotal,
+    fixedStaffTotal,
+    grandTotal: invoiceTotal + fixedStaffTotal,
+    invoiceCount: includedInvoices.length,
+    notes: notes.trim() || null,
+    approvalDeadline: deadline,
+    submittedById: session.user.id,
+  });
+
+  // Email every payroll approver
+  const approvers = await db.query.users.findMany({
+    where: and(eq(users.role, "PAYROLL_APPROVER"), eq(users.archived, false)),
+  });
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nreuv-invoicing.vercel.app";
+  const deadlineText = deadline.toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+  }) + " ET";
+  for (const approver of approvers) {
+    if (approver.email) {
+      await sendPayrollApprovalRequestEmail(
+        approver.email,
+        approver.name || "there",
+        payDate,
+        invoiceTotal + fixedStaffTotal,
+        includedInvoices.length,
+        notes.trim() || null,
+        deadlineText,
+        `${appUrl}/admin/payroll?date=${payDate}`
+      );
+    }
+    await db.insert(notifications).values({
+      userId: approver.id,
+      message: `Payroll for ${payDate} is ready for your approval — due ${deadlineText}.`,
+    });
+  }
+
+  revalidatePath("/admin/payroll");
+  return { approversNotified: approvers.length, deadline: deadlineText };
+}
+
+export async function approvePayrollRun(payDate: string) {
+  const session = await auth();
+  if (!session?.user?.id || (session.user.role !== "ADMIN" && session.user.role !== "PAYROLL_APPROVER")) {
+    throw new Error("Forbidden: Only an Admin or Payroll Approver can approve payroll.");
+  }
+
+  const run = await db.query.payrollRuns.findFirst({
+    where: eq(payrollRuns.payDate, payDate),
+  });
+  if (!run) {
+    throw new Error("This payroll run has not been submitted for approval yet.");
+  }
+  if (run.status === "APPROVED") {
+    throw new Error("This payroll run has already been approved.");
+  }
+
+  // Approve every still-pending invoice on the run
+  const dayMatch = sql`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD') = ${payDate}`;
+  const dayInvoices = await db.query.invoices.findMany({ where: dayMatch });
+  const pending = dayInvoices.filter(
+    (i) => i.status === "PENDING_MANAGER" || i.status === "PENDING_ADMIN" || i.status === "SENT"
+  );
+  if (pending.length > 0) {
+    await db
+      .update(invoices)
+      .set({ status: "APPROVED", approvedDate: new Date() })
+      .where(inArray(invoices.id, pending.map((i) => i.id)));
+  }
+
+  await db
+    .update(payrollRuns)
+    .set({ status: "APPROVED", approvedById: session.user.id, approvedAt: new Date() })
+    .where(eq(payrollRuns.id, run.id));
+
+  // Let the admin who submitted it know
+  if (run.submittedById) {
+    await db.insert(notifications).values({
+      userId: run.submittedById,
+      message: `Payroll for ${payDate} was approved by ${session.user.name || "the payroll approver"}.`,
+    });
+  }
+
+  revalidatePath("/admin/payroll");
+  revalidatePath("/");
+  return { invoicesApproved: pending.length };
 }
 
 // ---------------- Fixed monthly staff ----------------

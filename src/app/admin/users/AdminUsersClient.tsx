@@ -222,6 +222,7 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
                 >
                   <option value="ADMIN">Admin</option>
                   <option value="PAYROLL_MANAGER">Payroll Manager</option>
+                  <option value="PAYROLL_APPROVER">Payroll Approver</option>
                   <option value="EMPLOYEE">Contractor / User</option>
                 </select>
                 {isUpdating === user.id && <span className="ml-2 text-xs text-slate-500 block">Updating...</span>}

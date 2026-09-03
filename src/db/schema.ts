@@ -12,7 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations, type InferInsertModel } from "drizzle-orm";
 
-export const roleEnum = pgEnum("role", ["USER", "ADMIN", "PAYROLL_MANAGER", "EMPLOYEE"]);
+export const roleEnum = pgEnum("role", ["USER", "ADMIN", "PAYROLL_MANAGER", "EMPLOYEE", "PAYROLL_APPROVER"]);
 export const invoiceRecurrenceEnum = pgEnum("invoice_recurrence", [
   "WEEKLY",
   "BIWEEKLY",
@@ -55,6 +55,29 @@ export const users = pgTable("user", {
   address: varchar("address", { length: 255 }),
   phone: varchar("phone", { length: 50 }),
   profilePictureUrl: varchar("profile_picture_url", { length: 255 }),
+});
+
+export const payrollRunStatusEnum = pgEnum("payroll_run_status", [
+  "PENDING_APPROVAL",
+  "APPROVED",
+]);
+
+// One row per payroll run (one pay date): an admin compiles and submits the
+// numbers, then a Payroll Approver reviews and approves.
+export const payrollRuns = pgTable("payroll_run", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  payDate: varchar("pay_date", { length: 10 }).notNull().unique(), // YYYY-MM-DD (Eastern)
+  status: payrollRunStatusEnum("status").default("PENDING_APPROVAL").notNull(),
+  invoiceTotal: real("invoice_total").default(0).notNull(),
+  fixedStaffTotal: real("fixed_staff_total").default(0).notNull(),
+  grandTotal: real("grand_total").default(0).notNull(),
+  invoiceCount: integer("invoice_count").default(0).notNull(),
+  notes: text("notes"), // admin's note to the approver
+  approvalDeadline: timestamp("approval_deadline", { mode: "date" }), // Thursday 3 PM ET before the pay date
+  submittedById: uuid("submitted_by_id").references(() => users.id),
+  submittedAt: timestamp("submitted_at", { mode: "date" }).defaultNow().notNull(),
+  approvedById: uuid("approved_by_id").references(() => users.id),
+  approvedAt: timestamp("approved_at", { mode: "date" }),
 });
 
 // Staff paid a fixed monthly amount who do not submit invoices.
@@ -165,6 +188,19 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 export const companiesRelations = relations(companies, ({ many }) => ({
   users: many(users),
   fixedStaff: many(fixedStaff),
+}));
+
+export const payrollRunsRelations = relations(payrollRuns, ({ one }) => ({
+  submittedBy: one(users, {
+    fields: [payrollRuns.submittedById],
+    references: [users.id],
+    relationName: "submitted_payroll_runs",
+  }),
+  approvedBy: one(users, {
+    fields: [payrollRuns.approvedById],
+    references: [users.id],
+    relationName: "approved_payroll_runs",
+  }),
 }));
 
 export const fixedStaffRelations = relations(fixedStaff, ({ one }) => ({

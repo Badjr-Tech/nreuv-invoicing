@@ -1,8 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
+import { submitPayrollRun, approvePayrollRun } from "@/app/actions";
+import DownloadPdfButton from "@/components/dashboard/DownloadPdfButton";
+
+interface RunInfo {
+  status: "PENDING_APPROVAL" | "APPROVED";
+  grandTotal: number;
+  notes: string | null;
+  approvalDeadline: string | null;
+  submittedByName: string | null;
+  submittedAt: string;
+  approvedByName: string | null;
+  approvedAt: string | null;
+}
 
 interface Company {
   id: string;
@@ -32,13 +46,57 @@ export default function PayrollClient({
   availableDates,
   invoices,
   fixedStaff,
+  run,
+  currentUserRole,
 }: {
   selectedDate: string;
   availableDates: string[];
   invoices: PayrollInvoice[];
   fixedStaff: FixedStaffMember[];
+  run: RunInfo | null;
+  currentUserRole: string;
 }) {
   const router = useRouter();
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+  const isAdmin = currentUserRole === "ADMIN";
+
+  const deadlineText = (iso: string | null) =>
+    iso
+      ? new Date(iso).toLocaleString("en-US", {
+          timeZone: "America/New_York",
+          weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+        }) + " ET"
+      : null;
+
+  const handleSubmit = async () => {
+    if (!confirm(`Submit payroll for ${selectedDate} to the approver? They'll get an email with the total and your note.`)) return;
+    setBusy(true);
+    try {
+      const res = await submitPayrollRun(selectedDate, notes);
+      alert(`Submitted! ${res.approversNotified} approver${res.approversNotified === 1 ? "" : "s"} notified. Approval is due ${res.deadline}.`);
+      setNotes("");
+      router.refresh();
+    } catch (e: any) {
+      alert(e.message || "Failed to submit payroll run.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!confirm(`Approve payroll for ${selectedDate}? This approves all pending invoices on the run.`)) return;
+    setBusy(true);
+    try {
+      await approvePayrollRun(selectedDate);
+      alert("Payroll approved!");
+      router.refresh();
+    } catch (e: any) {
+      alert(e.message || "Failed to approve payroll run.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   // Group invoices and fixed staff under their company name
   const groups = new Map<string, { invoices: PayrollInvoice[]; staff: FixedStaffMember[] }>();
@@ -95,6 +153,68 @@ export default function PayrollClient({
         </div>
       </div>
 
+      {/* Approval status / actions */}
+      {run?.status === "APPROVED" ? (
+        <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-4">
+          <p className="font-bold text-green-800">✓ Payroll approved</p>
+          <p className="text-sm text-green-700 mt-1">
+            ${run.grandTotal.toFixed(2)} approved by {run.approvedByName || "the payroll approver"} on{" "}
+            {run.approvedAt ? new Date(run.approvedAt).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""} ET.
+          </p>
+          {run.notes && <p className="text-sm text-green-700 mt-1 italic">Note: {run.notes}</p>}
+        </div>
+      ) : run?.status === "PENDING_APPROVAL" ? (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-bold text-amber-800">⏳ Awaiting approval</p>
+              <p className="text-sm text-amber-700 mt-1">
+                ${run.grandTotal.toFixed(2)} submitted by {run.submittedByName || "an admin"}.
+                {run.approvalDeadline && (
+                  <> Approval due <strong>{deadlineText(run.approvalDeadline)}</strong>.</>
+                )}
+              </p>
+              {run.notes && <p className="text-sm text-amber-700 mt-1 italic">Note: {run.notes}</p>}
+            </div>
+            {(currentUserRole === "PAYROLL_APPROVER" || isAdmin) && (
+              <button
+                onClick={handleApprove}
+                disabled={busy}
+                className="bg-green-700 hover:bg-green-800 text-white font-bold px-5 py-2.5 rounded-lg disabled:opacity-50"
+              >
+                Approve Payroll
+              </button>
+            )}
+          </div>
+        </div>
+      ) : isAdmin ? (
+        <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
+          <p className="font-bold text-slate-800 mb-1">Send to approver</p>
+          <p className="text-sm text-slate-500 mb-3">
+            Review the numbers below, add a note if you like, then submit. The payroll approver gets an
+            email and must approve by 3 PM ET on the Thursday before the pay date.
+          </p>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Notes for the approver (optional) — e.g. anything unusual this period"
+            rows={2}
+            className="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none mb-3"
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={busy}
+            className="bg-nreuv-primary hover:opacity-90 text-white font-bold px-5 py-2.5 rounded-lg disabled:opacity-50"
+          >
+            Submit Payroll for Approval
+          </button>
+        </div>
+      ) : (
+        <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm text-slate-600">This pay period hasn&apos;t been submitted for approval yet.</p>
+        </div>
+      )}
+
       {/* Totals summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
@@ -145,7 +265,12 @@ export default function PayrollClient({
                       </td>
                       <td className="px-5 py-3 text-right font-medium text-slate-900">${inv.totalCost.toFixed(2)}</td>
                       <td className="px-5 py-3 text-right">
-                        <Link href={`/invoices/${inv.id}`} className="text-nreuv-primary hover:underline">View</Link>
+                        <span className="inline-flex items-center gap-3">
+                          {isAdmin && (
+                            <Link href={`/invoices/${inv.id}`} className="text-nreuv-primary hover:underline">View</Link>
+                          )}
+                          <DownloadPdfButton invoiceId={inv.id} />
+                        </span>
                       </td>
                     </tr>
                   ))}

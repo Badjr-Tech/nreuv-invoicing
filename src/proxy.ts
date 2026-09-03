@@ -52,6 +52,17 @@ export default auth((req: any) => {
       // Admins can access every page
       return NextResponse.next();
     }
+
+    if (userRole === "PAYROLL_APPROVER") {
+      // Approvers only see the payroll review area (plus notifications)
+      if (
+        nextUrl.pathname.startsWith("/admin/payroll") ||
+        nextUrl.pathname.startsWith("/notifications")
+      ) {
+        return NextResponse.next();
+      }
+      return NextResponse.redirect(new URL("/admin/payroll", nextUrl));
+    }
   }
 
   // Default redirect for any other case
