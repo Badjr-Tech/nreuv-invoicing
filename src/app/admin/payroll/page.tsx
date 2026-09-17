@@ -83,6 +83,8 @@ export default async function PayrollPage({
         status: run.status,
         grandTotal: run.grandTotal,
         notes: run.notes,
+        attachmentUrl: run.attachmentUrl,
+        attachmentName: run.attachmentName,
         approvalDeadline: run.approvalDeadline?.toISOString() ?? null,
         submittedByName: run.submittedBy?.name ?? null,
         submittedAt: run.submittedAt.toISOString(),

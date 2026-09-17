@@ -1119,13 +1119,35 @@ function approvalDeadlineFor(payDate: string): Date {
   return new Date(`${day}T${String(15 + offsetHours).padStart(2, "0")}:00:00Z`);
 }
 
-export async function submitPayrollRun(payDate: string, notes: string) {
+export async function submitPayrollRun(payDate: string, notes: string, formData?: FormData) {
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "ADMIN") {
     throw new Error("Forbidden: Only an Admin can submit a payroll run for approval.");
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(payDate)) {
     throw new Error("Invalid pay date.");
+  }
+
+  // Optional screenshot of the payroll-system entry, for the approver to review
+  let attachmentUrl: string | null = null;
+  let attachmentName: string | null = null;
+  const file = formData?.get("screenshot") as File | null;
+  if (file && file.size > 0) {
+    const allowed = ["image/png", "image/jpeg", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      throw new Error("The screenshot must be a PNG, JPG, or WEBP image.");
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error("The screenshot must be under 10 MB.");
+    }
+    const { put } = await import("@vercel/blob");
+    const safeName = file.name.normalize("NFC").replace(/[^a-zA-Z0-9.\-_]/g, "") || `payroll-${payDate}.png`;
+    const blob = await put(`payroll/${payDate}-${safeName}`, file, {
+      access: "public",
+      addRandomSuffix: true,
+    });
+    attachmentUrl = blob.url;
+    attachmentName = file.name;
   }
 
   const existing = await db.query.payrollRuns.findFirst({
@@ -1156,6 +1178,8 @@ export async function submitPayrollRun(payDate: string, notes: string) {
     grandTotal: invoiceTotal + fixedStaffTotal,
     invoiceCount: includedInvoices.length,
     notes: notes.trim() || null,
+    attachmentUrl,
+    attachmentName,
     approvalDeadline: deadline,
     submittedById: session.user.id,
   });
@@ -1179,7 +1203,8 @@ export async function submitPayrollRun(payDate: string, notes: string) {
         includedInvoices.length,
         notes.trim() || null,
         deadlineText,
-        `${appUrl}/admin/payroll?date=${payDate}`
+        `${appUrl}/admin/payroll?date=${payDate}`,
+        attachmentUrl
       );
     }
     await db.insert(notifications).values({

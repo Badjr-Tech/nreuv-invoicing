@@ -73,6 +73,8 @@ export const payrollRuns = pgTable("payroll_run", {
   grandTotal: real("grand_total").default(0).notNull(),
   invoiceCount: integer("invoice_count").default(0).notNull(),
   notes: text("notes"), // admin's note to the approver
+  attachmentUrl: text("attachment_url"), // screenshot of the payroll-system entry, for the approver to review
+  attachmentName: text("attachment_name"),
   approvalDeadline: timestamp("approval_deadline", { mode: "date" }), // Thursday 3 PM ET before the pay date
   submittedById: uuid("submitted_by_id").references(() => users.id),
   submittedAt: timestamp("submitted_at", { mode: "date" }).defaultNow().notNull(),

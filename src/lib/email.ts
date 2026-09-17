@@ -110,10 +110,11 @@ export const sendPayrollApprovalRequestEmail = async (
   notes: string | null,
   deadline: string,
   reviewLink: string,
+  attachmentUrl?: string | null,
 ) => {
   await sendEmail(
     to,
-    `Payroll for ${payDate} is ready for your approval`,
+    `Payroll ready for approval: $${grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })} — approve by ${deadline}`,
     `<h2 style="color: #7f1d1d;">Payroll is ready for your approval</h2>
      <p>Hi ${approverName},</p>
      <p>The payroll run for <strong>${payDate}</strong> has been compiled and is waiting for your review.</p>
@@ -123,6 +124,7 @@ export const sendPayrollApprovalRequestEmail = async (
        <tr><td style="padding: 4px 12px 4px 0; color: #64748b;">Approve by</td><td style="padding: 4px 0; font-weight: bold; color: #b91c1c;">${deadline}</td></tr>
      </table>
      ${notes ? `<p style="background: #f8fafc; border-left: 3px solid #94a3b8; padding: 10px 14px;"><strong>Note from the admin:</strong><br/>${notes}</p>` : ""}
+     ${attachmentUrl ? `<p style="margin: 16px 0 4px;"><strong>Payroll system entry:</strong></p><a href="${attachmentUrl}"><img src="${attachmentUrl}" alt="Payroll screenshot" style="max-width: 100%; border: 1px solid #e2e8f0; border-radius: 8px;" /></a>` : ""}
      ${button(reviewLink, "Review & Approve Payroll")}
      <p style="color: #64748b; font-size: 13px;">Sign in to review each invoice PDF and approve the run.</p>`
   );

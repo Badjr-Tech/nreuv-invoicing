@@ -11,6 +11,8 @@ interface RunInfo {
   status: "PENDING_APPROVAL" | "APPROVED";
   grandTotal: number;
   notes: string | null;
+  attachmentUrl: string | null;
+  attachmentName: string | null;
   approvalDeadline: string | null;
   submittedByName: string | null;
   submittedAt: string;
@@ -58,6 +60,7 @@ export default function PayrollClient({
 }) {
   const router = useRouter();
   const [notes, setNotes] = useState("");
+  const [screenshot, setScreenshot] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const isAdmin = currentUserRole === "ADMIN";
 
@@ -73,9 +76,15 @@ export default function PayrollClient({
     if (!confirm(`Submit payroll for ${selectedDate} to the approver? They'll get an email with the total and your note.`)) return;
     setBusy(true);
     try {
-      const res = await submitPayrollRun(selectedDate, notes);
+      let formData: FormData | undefined;
+      if (screenshot) {
+        formData = new FormData();
+        formData.append("screenshot", screenshot);
+      }
+      const res = await submitPayrollRun(selectedDate, notes, formData);
       alert(`Submitted! ${res.approversNotified} approver${res.approversNotified === 1 ? "" : "s"} notified. Approval is due ${res.deadline}.`);
       setNotes("");
+      setScreenshot(null);
       router.refresh();
     } catch (e: any) {
       alert(e.message || "Failed to submit payroll run.");
@@ -162,6 +171,11 @@ export default function PayrollClient({
             {run.approvedAt ? new Date(run.approvedAt).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""} ET.
           </p>
           {run.notes && <p className="text-sm text-green-700 mt-1 italic">Note: {run.notes}</p>}
+          {run.attachmentUrl && (
+            <a href={run.attachmentUrl} target="_blank" rel="noreferrer" className="text-sm text-green-700 underline mt-1 inline-block">
+              View payroll screenshot
+            </a>
+          )}
         </div>
       ) : run?.status === "PENDING_APPROVAL" ? (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
@@ -175,6 +189,16 @@ export default function PayrollClient({
                 )}
               </p>
               {run.notes && <p className="text-sm text-amber-700 mt-1 italic">Note: {run.notes}</p>}
+              {run.attachmentUrl && (
+                <a href={run.attachmentUrl} target="_blank" rel="noreferrer" className="block mt-3">
+                  <img
+                    src={run.attachmentUrl}
+                    alt={run.attachmentName || "Payroll system screenshot"}
+                    className="max-h-80 rounded-lg border border-amber-200 shadow-sm"
+                  />
+                  <span className="text-xs text-amber-700 underline">Open full size</span>
+                </a>
+              )}
             </div>
             {(currentUserRole === "PAYROLL_APPROVER" || isAdmin) && (
               <button
@@ -201,12 +225,26 @@ export default function PayrollClient({
             rows={2}
             className="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none mb-3"
           />
+          <div className="mb-3">
+            <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">
+              Payroll system screenshot (PNG/JPG) — this is what the approver reviews
+            </label>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => setScreenshot(e.target.files?.[0] ?? null)}
+              className="block text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 file:font-medium hover:file:bg-slate-200 file:cursor-pointer"
+            />
+            {screenshot && (
+              <p className="text-xs text-slate-500 mt-1">Attached: {screenshot.name}</p>
+            )}
+          </div>
           <button
             onClick={handleSubmit}
             disabled={busy}
             className="bg-nreuv-primary hover:opacity-90 text-white font-bold px-5 py-2.5 rounded-lg disabled:opacity-50"
           >
-            Submit Payroll for Approval
+            {busy ? "Submitting…" : "Submit Payroll for Approval"}
           </button>
         </div>
       ) : (
