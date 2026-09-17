@@ -61,7 +61,17 @@ export default function PayrollClient({
   const router = useRouter();
   const [notes, setNotes] = useState("");
   const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const acceptFile = (file: File | undefined | null) => {
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      alert("Please use a PNG, JPG, or WEBP image.");
+      return;
+    }
+    setScreenshot(file);
+  };
   const isAdmin = currentUserRole === "ADMIN";
 
   const deadlineText = (iso: string | null) =>
@@ -229,15 +239,50 @@ export default function PayrollClient({
             <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">
               Payroll system screenshot (PNG/JPG) — this is what the approver reviews
             </label>
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={(e) => setScreenshot(e.target.files?.[0] ?? null)}
-              className="block text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 file:font-medium hover:file:bg-slate-200 file:cursor-pointer"
-            />
-            {screenshot && (
-              <p className="text-xs text-slate-500 mt-1">Attached: {screenshot.name}</p>
-            )}
+            <label
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                acceptFile(e.dataTransfer.files?.[0]);
+              }}
+              onPaste={(e) => {
+                const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
+                if (item) acceptFile(item.getAsFile());
+              }}
+              tabIndex={0}
+              className={`flex flex-col items-center justify-center gap-1 border-2 border-dashed rounded-xl px-4 py-6 cursor-pointer transition-colors outline-none focus:ring-2 focus:ring-nreuv-accent ${
+                dragOver ? "border-nreuv-accent bg-red-50" : screenshot ? "border-green-400 bg-green-50" : "border-slate-300 bg-slate-50 hover:bg-slate-100"
+              }`}
+            >
+              {screenshot ? (
+                <>
+                  <img src={URL.createObjectURL(screenshot)} alt="Screenshot preview" className="max-h-40 rounded-lg border border-slate-200" />
+                  <p className="text-xs text-slate-600 mt-1">{screenshot.name}</p>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); setScreenshot(null); }}
+                    className="text-xs text-red-600 underline"
+                  >
+                    Remove
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-slate-600 font-medium">
+                    {dragOver ? "Drop it here!" : "Drag & drop your screenshot here"}
+                  </p>
+                  <p className="text-xs text-slate-500">or click to browse — you can also paste (Cmd+V)</p>
+                </>
+              )}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(e) => acceptFile(e.target.files?.[0])}
+                className="hidden"
+              />
+            </label>
           </div>
           <button
             onClick={handleSubmit}

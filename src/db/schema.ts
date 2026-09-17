@@ -185,6 +185,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.companyId],
     references: [companies.id],
   }),
+  submittedPayrollRuns: many(payrollRuns, { relationName: "submitted_payroll_runs" }),
+  approvedPayrollRuns: many(payrollRuns, { relationName: "approved_payroll_runs" }),
 }));
 
 export const companiesRelations = relations(companies, ({ many }) => ({
