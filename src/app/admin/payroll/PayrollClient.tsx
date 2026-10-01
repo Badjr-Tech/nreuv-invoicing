@@ -89,8 +89,12 @@ export default function PayrollClient({
     try {
       let attachment: { url: string; name: string } | null = null;
       if (screenshot) {
-        // Upload straight from the browser to blob storage — no size squeeze
-        const blob = await upload(`payroll/${selectedDate}-${screenshot.name}`, screenshot, {
+        // Upload straight from the browser to blob storage — no size squeeze.
+        // Sanitize the filename: macOS screenshot names contain invisible
+        // unicode spaces that break the upload token.
+        const ext = screenshot.name.includes(".") ? screenshot.name.slice(screenshot.name.lastIndexOf(".")) : ".png";
+        const safeName = `payroll-${selectedDate}-${Date.now()}${ext.replace(/[^a-zA-Z0-9.]/g, "")}`;
+        const blob = await upload(`payroll/${safeName}`, screenshot, {
           access: "public",
           handleUploadUrl: "/api/payroll/upload",
         });
