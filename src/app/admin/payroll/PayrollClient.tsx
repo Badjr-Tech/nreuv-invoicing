@@ -99,7 +99,7 @@ export default function PayrollClient({
         const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")) : ".png";
         const safeName = `payroll-${selectedDate}-${Date.now()}-${i}${ext.replace(/[^a-zA-Z0-9.]/g, "")}`;
         const blob = await upload(`payroll/${safeName}`, file, {
-          access: "public",
+          access: "private", // the blob store is private; images are served through /api/payroll/screenshot
           handleUploadUrl: "/api/payroll/upload",
         });
         attachments.push({ url: blob.url, name: file.name });
@@ -197,7 +197,7 @@ export default function PayrollClient({
           {run.attachments && run.attachments.length > 0 && (
             <p className="mt-1 flex gap-3">
               {run.attachments.map((a, i) => (
-                <a key={i} href={a.url} target="_blank" rel="noreferrer" className="text-sm text-green-700 underline">
+                <a key={i} href={`/api/payroll/screenshot?url=${encodeURIComponent(a.url)}`} target="_blank" rel="noreferrer" className="text-sm text-green-700 underline">
                   Screenshot {i + 1}
                 </a>
               ))}
@@ -218,16 +218,19 @@ export default function PayrollClient({
               {run.notes && <p className="text-sm text-amber-700 mt-1 italic">Note: {run.notes}</p>}
               {run.attachments && run.attachments.length > 0 && (
                 <div className="flex flex-wrap gap-3 mt-3">
-                  {run.attachments.map((a, i) => (
-                    <a key={i} href={a.url} target="_blank" rel="noreferrer" className="block">
-                      <img
-                        src={a.url}
-                        alt={a.name || `Payroll screenshot ${i + 1}`}
-                        className="max-h-80 rounded-lg border border-amber-200 shadow-sm"
-                      />
-                      <span className="text-xs text-amber-700 underline">Open full size</span>
-                    </a>
-                  ))}
+                  {run.attachments.map((a, i) => {
+                    const src = `/api/payroll/screenshot?url=${encodeURIComponent(a.url)}`;
+                    return (
+                      <a key={i} href={src} target="_blank" rel="noreferrer" className="block">
+                        <img
+                          src={src}
+                          alt={a.name || `Payroll screenshot ${i + 1}`}
+                          className="max-h-80 rounded-lg border border-amber-200 shadow-sm"
+                        />
+                        <span className="text-xs text-amber-700 underline">Open full size</span>
+                      </a>
+                    );
+                  })}
                 </div>
               )}
             </div>
