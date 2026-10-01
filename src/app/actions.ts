@@ -1119,7 +1119,11 @@ function approvalDeadlineFor(payDate: string): Date {
   return new Date(`${day}T${String(15 + offsetHours).padStart(2, "0")}:00:00Z`);
 }
 
-export async function submitPayrollRun(payDate: string, notes: string, formData?: FormData) {
+export async function submitPayrollRun(
+  payDate: string,
+  notes: string,
+  attachment?: { url: string; name: string } | null
+) {
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "ADMIN") {
     throw new Error("Forbidden: Only an Admin can submit a payroll run for approval.");
@@ -1128,26 +1132,12 @@ export async function submitPayrollRun(payDate: string, notes: string, formData?
     throw new Error("Invalid pay date.");
   }
 
-  // Optional screenshot of the payroll-system entry, for the approver to review
-  let attachmentUrl: string | null = null;
-  let attachmentName: string | null = null;
-  const file = formData?.get("screenshot") as File | null;
-  if (file && file.size > 0) {
-    const allowed = ["image/png", "image/jpeg", "image/webp"];
-    if (!allowed.includes(file.type)) {
-      throw new Error("The screenshot must be a PNG, JPG, or WEBP image.");
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      throw new Error("The screenshot must be under 10 MB.");
-    }
-    const { put } = await import("@vercel/blob");
-    const safeName = file.name.normalize("NFC").replace(/[^a-zA-Z0-9.\-_]/g, "") || `payroll-${payDate}.png`;
-    const blob = await put(`payroll/${payDate}-${safeName}`, file, {
-      access: "public",
-      addRandomSuffix: true,
-    });
-    attachmentUrl = blob.url;
-    attachmentName = file.name;
+  // Screenshot is uploaded straight from the browser to Vercel Blob
+  // (via /api/payroll/upload), so only its URL arrives here.
+  const attachmentUrl = attachment?.url || null;
+  const attachmentName = attachment?.name || null;
+  if (attachmentUrl && !attachmentUrl.includes(".blob.vercel-storage.com/")) {
+    throw new Error("Invalid screenshot URL.");
   }
 
   const existing = await db.query.payrollRuns.findFirst({

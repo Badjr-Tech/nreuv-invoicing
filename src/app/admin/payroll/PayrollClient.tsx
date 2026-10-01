@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
+import { upload } from "@vercel/blob/client";
 import { submitPayrollRun, approvePayrollRun } from "@/app/actions";
 import DownloadPdfButton from "@/components/dashboard/DownloadPdfButton";
 
@@ -86,12 +87,16 @@ export default function PayrollClient({
     if (!confirm(`Submit payroll for ${selectedDate} to the approver? They'll get an email with the total and your note.`)) return;
     setBusy(true);
     try {
-      let formData: FormData | undefined;
+      let attachment: { url: string; name: string } | null = null;
       if (screenshot) {
-        formData = new FormData();
-        formData.append("screenshot", screenshot);
+        // Upload straight from the browser to blob storage — no size squeeze
+        const blob = await upload(`payroll/${selectedDate}-${screenshot.name}`, screenshot, {
+          access: "public",
+          handleUploadUrl: "/api/payroll/upload",
+        });
+        attachment = { url: blob.url, name: screenshot.name };
       }
-      const res = await submitPayrollRun(selectedDate, notes, formData);
+      const res = await submitPayrollRun(selectedDate, notes, attachment);
       alert(`Submitted! ${res.approversNotified} approver${res.approversNotified === 1 ? "" : "s"} notified. Approval is due ${res.deadline}.`);
       setNotes("");
       setScreenshot(null);
