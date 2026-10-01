@@ -12,8 +12,7 @@ interface RunInfo {
   status: "PENDING_APPROVAL" | "APPROVED";
   grandTotal: number;
   notes: string | null;
-  attachmentUrl: string | null;
-  attachmentName: string | null;
+  attachments: { url: string; name: string }[] | null;
   approvalDeadline: string | null;
   submittedByName: string | null;
   submittedAt: string;
@@ -61,17 +60,21 @@ export default function PayrollClient({
 }) {
   const router = useRouter();
   const [notes, setNotes] = useState("");
-  const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [screenshots, setScreenshots] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const acceptFile = (file: File | undefined | null) => {
-    if (!file) return;
-    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-      alert("Please use a PNG, JPG, or WEBP image.");
-      return;
+  const acceptFiles = (files: Iterable<File | null | undefined>) => {
+    const good: File[] = [];
+    for (const file of files) {
+      if (!file) continue;
+      if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+        alert(`"${file.name}" isn't a PNG, JPG, or WEBP image — skipped.`);
+        continue;
+      }
+      good.push(file);
     }
-    setScreenshot(file);
+    if (good.length) setScreenshots((prev) => [...prev, ...good].slice(0, 10));
   };
   const isAdmin = currentUserRole === "ADMIN";
 
@@ -87,23 +90,24 @@ export default function PayrollClient({
     if (!confirm(`Submit payroll for ${selectedDate} to the approver? They'll get an email with the total and your note.`)) return;
     setBusy(true);
     try {
-      let attachment: { url: string; name: string } | null = null;
-      if (screenshot) {
-        // Upload straight from the browser to blob storage — no size squeeze.
-        // Sanitize the filename: macOS screenshot names contain invisible
-        // unicode spaces that break the upload token.
-        const ext = screenshot.name.includes(".") ? screenshot.name.slice(screenshot.name.lastIndexOf(".")) : ".png";
-        const safeName = `payroll-${selectedDate}-${Date.now()}${ext.replace(/[^a-zA-Z0-9.]/g, "")}`;
-        const blob = await upload(`payroll/${safeName}`, screenshot, {
+      // Upload straight from the browser to blob storage — no size squeeze.
+      // Generated pathnames avoid macOS screenshot names' invisible unicode
+      // spaces, which break the upload token.
+      const attachments: { url: string; name: string }[] = [];
+      for (let i = 0; i < screenshots.length; i++) {
+        const file = screenshots[i];
+        const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")) : ".png";
+        const safeName = `payroll-${selectedDate}-${Date.now()}-${i}${ext.replace(/[^a-zA-Z0-9.]/g, "")}`;
+        const blob = await upload(`payroll/${safeName}`, file, {
           access: "public",
           handleUploadUrl: "/api/payroll/upload",
         });
-        attachment = { url: blob.url, name: screenshot.name };
+        attachments.push({ url: blob.url, name: file.name });
       }
-      const res = await submitPayrollRun(selectedDate, notes, attachment);
+      const res = await submitPayrollRun(selectedDate, notes, attachments);
       alert(`Submitted! ${res.approversNotified} approver${res.approversNotified === 1 ? "" : "s"} notified. Approval is due ${res.deadline}.`);
       setNotes("");
-      setScreenshot(null);
+      setScreenshots([]);
       router.refresh();
     } catch (e: any) {
       alert(e.message || "Failed to submit payroll run.");
@@ -190,10 +194,14 @@ export default function PayrollClient({
             {run.approvedAt ? new Date(run.approvedAt).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""} ET.
           </p>
           {run.notes && <p className="text-sm text-green-700 mt-1 italic">Note: {run.notes}</p>}
-          {run.attachmentUrl && (
-            <a href={run.attachmentUrl} target="_blank" rel="noreferrer" className="text-sm text-green-700 underline mt-1 inline-block">
-              View payroll screenshot
-            </a>
+          {run.attachments && run.attachments.length > 0 && (
+            <p className="mt-1 flex gap-3">
+              {run.attachments.map((a, i) => (
+                <a key={i} href={a.url} target="_blank" rel="noreferrer" className="text-sm text-green-700 underline">
+                  Screenshot {i + 1}
+                </a>
+              ))}
+            </p>
           )}
         </div>
       ) : run?.status === "PENDING_APPROVAL" ? (
@@ -208,15 +216,19 @@ export default function PayrollClient({
                 )}
               </p>
               {run.notes && <p className="text-sm text-amber-700 mt-1 italic">Note: {run.notes}</p>}
-              {run.attachmentUrl && (
-                <a href={run.attachmentUrl} target="_blank" rel="noreferrer" className="block mt-3">
-                  <img
-                    src={run.attachmentUrl}
-                    alt={run.attachmentName || "Payroll system screenshot"}
-                    className="max-h-80 rounded-lg border border-amber-200 shadow-sm"
-                  />
-                  <span className="text-xs text-amber-700 underline">Open full size</span>
-                </a>
+              {run.attachments && run.attachments.length > 0 && (
+                <div className="flex flex-wrap gap-3 mt-3">
+                  {run.attachments.map((a, i) => (
+                    <a key={i} href={a.url} target="_blank" rel="noreferrer" className="block">
+                      <img
+                        src={a.url}
+                        alt={a.name || `Payroll screenshot ${i + 1}`}
+                        className="max-h-80 rounded-lg border border-amber-200 shadow-sm"
+                      />
+                      <span className="text-xs text-amber-700 underline">Open full size</span>
+                    </a>
+                  ))}
+                </div>
               )}
             </div>
             {(currentUserRole === "PAYROLL_APPROVER" || isAdmin) && (
@@ -254,41 +266,46 @@ export default function PayrollClient({
               onDrop={(e) => {
                 e.preventDefault();
                 setDragOver(false);
-                acceptFile(e.dataTransfer.files?.[0]);
+                acceptFiles(Array.from(e.dataTransfer.files || []));
               }}
               onPaste={(e) => {
-                const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
-                if (item) acceptFile(item.getAsFile());
+                acceptFiles(
+                  Array.from(e.clipboardData.items)
+                    .filter((i) => i.type.startsWith("image/"))
+                    .map((i) => i.getAsFile())
+                );
               }}
               tabIndex={0}
-              className={`flex flex-col items-center justify-center gap-1 border-2 border-dashed rounded-xl px-4 py-6 cursor-pointer transition-colors outline-none focus:ring-2 focus:ring-nreuv-accent ${
-                dragOver ? "border-nreuv-accent bg-red-50" : screenshot ? "border-green-400 bg-green-50" : "border-slate-300 bg-slate-50 hover:bg-slate-100"
+              className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl px-4 py-6 cursor-pointer transition-colors outline-none focus:ring-2 focus:ring-nreuv-accent ${
+                dragOver ? "border-nreuv-accent bg-red-50" : screenshots.length ? "border-green-400 bg-green-50" : "border-slate-300 bg-slate-50 hover:bg-slate-100"
               }`}
             >
-              {screenshot ? (
-                <>
-                  <img src={URL.createObjectURL(screenshot)} alt="Screenshot preview" className="max-h-40 rounded-lg border border-slate-200" />
-                  <p className="text-xs text-slate-600 mt-1">{screenshot.name}</p>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); setScreenshot(null); }}
-                    className="text-xs text-red-600 underline"
-                  >
-                    Remove
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-slate-600 font-medium">
-                    {dragOver ? "Drop it here!" : "Drag & drop your screenshot here"}
-                  </p>
-                  <p className="text-xs text-slate-500">or click to browse — you can also paste (Cmd+V)</p>
-                </>
+              {screenshots.length > 0 && (
+                <div className="flex flex-wrap gap-3 justify-center">
+                  {screenshots.map((file, i) => (
+                    <div key={i} className="flex flex-col items-center">
+                      <img src={URL.createObjectURL(file)} alt={`Screenshot ${i + 1}`} className="max-h-32 rounded-lg border border-slate-200" />
+                      <p className="text-xs text-slate-600 mt-1 max-w-[10rem] truncate">{file.name}</p>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); setScreenshots(screenshots.filter((_, j) => j !== i)); }}
+                        className="text-xs text-red-600 underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
+              <p className="text-sm text-slate-600 font-medium">
+                {dragOver ? "Drop them here!" : screenshots.length ? "Add more screenshots" : "Drag & drop your screenshots here"}
+              </p>
+              <p className="text-xs text-slate-500">or click to browse — you can also paste (Cmd+V). Multiple images welcome.</p>
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
-                onChange={(e) => acceptFile(e.target.files?.[0])}
+                multiple
+                onChange={(e) => { acceptFiles(Array.from(e.target.files || [])); e.target.value = ""; }}
                 className="hidden"
               />
             </label>

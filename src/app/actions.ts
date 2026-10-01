@@ -1122,7 +1122,7 @@ function approvalDeadlineFor(payDate: string): Date {
 export async function submitPayrollRun(
   payDate: string,
   notes: string,
-  attachment?: { url: string; name: string } | null
+  attachments?: { url: string; name: string }[] | null
 ) {
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "ADMIN") {
@@ -1132,12 +1132,13 @@ export async function submitPayrollRun(
     throw new Error("Invalid pay date.");
   }
 
-  // Screenshot is uploaded straight from the browser to Vercel Blob
-  // (via /api/payroll/upload), so only its URL arrives here.
-  const attachmentUrl = attachment?.url || null;
-  const attachmentName = attachment?.name || null;
-  if (attachmentUrl && !attachmentUrl.includes(".blob.vercel-storage.com/")) {
-    throw new Error("Invalid screenshot URL.");
+  // Screenshots are uploaded straight from the browser to Vercel Blob
+  // (via /api/payroll/upload), so only their URLs arrive here.
+  const screenshots = (attachments || []).slice(0, 10);
+  for (const a of screenshots) {
+    if (!a.url.includes(".blob.vercel-storage.com/")) {
+      throw new Error("Invalid screenshot URL.");
+    }
   }
 
   const existing = await db.query.payrollRuns.findFirst({
@@ -1168,8 +1169,7 @@ export async function submitPayrollRun(
     grandTotal: invoiceTotal + fixedStaffTotal,
     invoiceCount: includedInvoices.length,
     notes: notes.trim() || null,
-    attachmentUrl,
-    attachmentName,
+    attachments: screenshots.length ? screenshots : null,
     approvalDeadline: deadline,
     submittedById: session.user.id,
   });
@@ -1194,7 +1194,7 @@ export async function submitPayrollRun(
         notes.trim() || null,
         deadlineText,
         `${appUrl}/admin/payroll?date=${payDate}`,
-        attachmentUrl
+        screenshots.map((s) => s.url)
       );
     }
     await db.insert(notifications).values({
