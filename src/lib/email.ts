@@ -7,7 +7,8 @@ async function sendEmail(
   to: string,
   subject: string,
   htmlBody: string,
-  attachments?: { name: string; contentBase64: string }[]
+  attachments?: { name: string; contentBase64: string }[],
+  replyTo?: string
 ) {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) {
@@ -41,6 +42,7 @@ async function sendEmail(
         ...(attachments?.length
           ? { attachment: attachments.map((a) => ({ name: a.name, content: a.contentBase64 })) }
           : {}),
+        ...(replyTo ? { replyTo: { email: replyTo } } : {}),
       }),
     });
     if (!res.ok) {
@@ -129,8 +131,11 @@ export const sendPayrollApprovalRequestEmail = async (
      <p style="font-weight: bold; color: #b91c1c;">Please approve by ${deadline}.</p>
      ${notes ? `<p style="background: #f8fafc; border-left: 3px solid #94a3b8; padding: 10px 14px;"><strong>Note from the admin:</strong><br/>${notes}</p>` : ""}
      ${attachments?.length ? `<p>📎 The payroll entry ${attachments.length === 1 ? "screenshot is" : "screenshots are"} attached to this email.</p>` : ""}
-     ${button(reviewLink, "Review & Approve Payroll")}
-     <p style="color: #64748b; font-size: 13px;">Sign in to review the invoices and approve the run.</p>`,
-    attachments || undefined
+     <p style="background: #ecfdf5; border-left: 3px solid #059669; padding: 10px 14px; font-weight: bold;">
+       ✅ To approve: simply reply to this email with &ldquo;Approved&rdquo;. Your reply goes to djmj@nreuv.com.
+     </p>
+     ${button(reviewLink, "Review in the App (optional)")}`,
+    attachments || undefined,
+    "djmj@nreuv.com"
   );
 };
