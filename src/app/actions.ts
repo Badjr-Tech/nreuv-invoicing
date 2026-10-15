@@ -370,6 +370,11 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
     totalCost += item.hours * userRate;
   }
 
+  // Flat-fee contractors record hours for the record, but always invoice their fee
+  if (userRecord.payType === "FLAT") {
+    totalCost = userRecord.flatFee;
+  }
+
   const [newInvoice] = await db
     .insert(invoices)
     .values({
@@ -445,6 +450,16 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
       if (existingInvoice.status !== "DRAFT") {
         throw new Error("Forbidden: Only DRAFT invoices can be edited.");
       }
+
+      // Rates always come from the invoice's owner (an admin may be editing)
+      const ownerRecord =
+        existingInvoice.userId === userId
+          ? userRecord
+          : await db.query.users.findFirst({ where: eq(users.id, existingInvoice.userId) });
+      if (!ownerRecord) {
+        throw new Error("Invoice owner not found.");
+      }
+      const ownerRate = ownerRecord.hourlyRate;
     
       // The invoiceData.invoiceDate from the form is now the Payment Date
       const paymentDate = invoiceData.invoiceDate;
@@ -466,7 +481,12 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
           throw new Error("Invoice item hours must be a positive number.");
         }
         newTotalHours += item.hours;
-        newTotalCost += item.hours * userRate;
+        newTotalCost += item.hours * ownerRate;
+      }
+
+      // Flat-fee contractors record hours for the record, but always invoice their fee
+      if (ownerRecord.payType === "FLAT") {
+        newTotalCost = ownerRecord.flatFee;
       }
     
       // Update invoice details
@@ -508,7 +528,7 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
           date: item.date,
           description: item.description,
           hours: item.hours,
-          rate: userRate,
+          rate: ownerRate,
           categoryId: item.categoryId || null,
         })
         .where(and(eq(invoiceItems.id, item.id), eq(invoiceItems.invoiceId, invoiceData.id)));
@@ -519,7 +539,7 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
         date: item.date,
         description: item.description,
         hours: item.hours,
-        rate: userRate,
+        rate: ownerRate,
         categoryId: item.categoryId || null,
       });
     }
@@ -808,6 +828,18 @@ export async function updateUserRate(userId: string, newRate: number) {
   }
 
   await db.update(users).set({ hourlyRate: newRate }).where(eq(users.id, userId));
+  revalidatePath("/admin/users");
+}
+
+export async function updateUserPayType(userId: string, payType: "HOURLY" | "FLAT", flatFee?: number) {
+  await requireAdmin();
+  if (flatFee !== undefined && (isNaN(flatFee) || flatFee < 0)) {
+    throw new Error("Flat fee cannot be negative.");
+  }
+  await db.update(users).set({
+    payType,
+    ...(flatFee !== undefined ? { flatFee } : {}),
+  }).where(eq(users.id, userId));
   revalidatePath("/admin/users");
 }
 

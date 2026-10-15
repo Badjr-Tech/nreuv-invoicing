@@ -18,9 +18,11 @@ interface NewInvoiceClientProps {
   nextInvoiceNumber: number;
   globalSchedule: GlobalSchedule | null;
   expectedHours?: number | null;
+  payType?: "HOURLY" | "FLAT";
+  flatFee?: number;
 }
 
-export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, nextInvoiceNumber, globalSchedule, expectedHours }: NewInvoiceClientProps) {
+export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, nextInvoiceNumber, globalSchedule, expectedHours, payType, flatFee }: NewInvoiceClientProps) {
   const router = useRouter();
   
   // Default to the first pay period if available, otherwise today
@@ -384,7 +386,9 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
             ) : null;
           })()}
           <div className="mt-4 flex justify-end text-lg font-bold text-slate-800">
-            Total: ${items.reduce((sum, item) => sum + (item.hours || 0) * hourlyRate, 0).toFixed(2)}
+            {payType === "FLAT"
+              ? `Total: $${(flatFee ?? 0).toFixed(2)} (flat fee — hours recorded for the record)`
+              : `Total: $${items.reduce((sum, item) => sum + (item.hours || 0) * hourlyRate, 0).toFixed(2)}`}
           </div>
         </div>
 

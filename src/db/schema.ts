@@ -28,6 +28,8 @@ export const invoiceStatusEnum = pgEnum("invoice_status", [
   "APPROVED",
 ]);
 
+export const payTypeEnum = pgEnum("pay_type", ["HOURLY", "FLAT"]);
+
 export const accountRequestStatusEnum = pgEnum("account_request_status", [
   "PENDING",
   "APPROVED",
@@ -48,6 +50,8 @@ export const users = pgTable("user", {
   role: roleEnum("role").default("USER").notNull(),
   emailVerified: timestamp("email_verified", { mode: "date" }), // Added emailVerified
   hourlyRate: real("hourly_rate").default(0).notNull(), // Added hourlyRate
+  payType: payTypeEnum("pay_type").default("HOURLY").notNull(), // FLAT = fixed fee per invoice, hours recorded for the record
+  flatFee: real("flat_fee").default(0).notNull(), // per-pay-period fee when payType is FLAT
   expectedHours: real("expected_hours"), // expected hours per pay period (null = not set)
   managerId: uuid("manager_id").references((): any => users.id),
   companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),

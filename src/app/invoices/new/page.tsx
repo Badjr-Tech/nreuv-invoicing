@@ -59,6 +59,8 @@ export default async function NewInvoicePage() {
         payPeriods={payPeriods}
         hourlyRate={userRecord?.hourlyRate || 0}
         expectedHours={userRecord?.expectedHours ?? null}
+        payType={userRecord?.payType ?? "HOURLY"}
+        flatFee={userRecord?.flatFee ?? 0}
         nextInvoiceNumber={nextInvoiceNumber}
         globalSchedule={globalSchedule as GlobalSchedule | null}
       />

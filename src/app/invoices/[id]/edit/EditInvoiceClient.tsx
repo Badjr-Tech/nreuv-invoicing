@@ -18,9 +18,11 @@ interface EditInvoiceClientProps {
   payPeriods: PayPeriod[];
   hourlyRate: number;
   expectedHours?: number | null;
+  payType?: "HOURLY" | "FLAT";
+  flatFee?: number;
 }
 
-export default function EditInvoiceClient({ invoice, categories, payPeriods, hourlyRate, expectedHours }: EditInvoiceClientProps) {
+export default function EditInvoiceClient({ invoice, categories, payPeriods, hourlyRate, expectedHours, payType, flatFee }: EditInvoiceClientProps) {
   const router = useRouter();
   
   // Format dates for input fields
@@ -367,7 +369,9 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
             ) : null;
           })()}
           <div className="mt-4 flex justify-end text-lg font-bold text-slate-800">
-            Total: ${items.reduce((sum: number, item: any) => sum + (item.hours || 0) * hourlyRate, 0).toFixed(2)}
+            {payType === "FLAT"
+              ? `Total: $${(flatFee ?? 0).toFixed(2)} (flat fee — hours recorded for the record)`
+              : `Total: $${items.reduce((sum: number, item: any) => sum + (item.hours || 0) * hourlyRate, 0).toFixed(2)}`}
           </div>
         </div>
 

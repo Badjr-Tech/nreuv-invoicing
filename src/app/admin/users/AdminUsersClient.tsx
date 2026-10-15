@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { updateUserRole, updateUserRate, updateUserManager, assignBundleToUser, unassignBundleFromUser, updateUserCompany, archiveUser, unarchiveUser, updateUserExpectedHours } from "@/app/actions";
+import { updateUserRole, updateUserRate, updateUserManager, assignBundleToUser, unassignBundleFromUser, updateUserCompany, archiveUser, unarchiveUser, updateUserExpectedHours, updateUserPayType } from "@/app/actions";
 import AddUserModal from "./AddUserModal";
 import ResetPasswordModal from "./ResetPasswordModal";
 import { useRouter } from "next/navigation";
@@ -26,6 +26,8 @@ interface User {
   name: string | null;
   email: string;
   hourlyRate: number;
+  payType: "HOURLY" | "FLAT";
+  flatFee: number;
   expectedHours: number | null;
   role: string;
   managerId: string | null;
@@ -67,6 +69,30 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
       setUsers(users.map(u => u.id === userId ? { ...u, hourlyRate: newRate } : u));
     } catch (error: any) {
       alert(error.message || "Failed to update user rate.");
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handlePayTypeChange = async (user: User, payType: "HOURLY" | "FLAT") => {
+    setIsUpdating(user.id);
+    try {
+      await updateUserPayType(user.id, payType);
+      setUsers(users.map(u => u.id === user.id ? { ...u, payType } : u));
+    } catch (error: any) {
+      alert(error.message || "Failed to update pay type.");
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handleFlatFeeChange = async (userId: string, flatFee: number) => {
+    setIsUpdating(userId);
+    try {
+      await updateUserPayType(userId, "FLAT", flatFee);
+      setUsers(users.map(u => u.id === userId ? { ...u, flatFee } : u));
+    } catch (error: any) {
+      alert(error.message || "Failed to update flat fee.");
     } finally {
       setIsUpdating(null);
     }
@@ -179,7 +205,7 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
               Name
             </th>
             <th className="px-3 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Hourly Rate
+              Pay
             </th>
             <th className="px-3 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Expected Hrs
@@ -212,22 +238,50 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
                 <p className="text-slate-500 text-xs break-all">{user.email}</p>
               </td>
               <td className="px-3 py-3 border-b border-slate-100 bg-white text-sm">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={user.payType}
+                    onChange={(e) => handlePayTypeChange(user, e.target.value as "HOURLY" | "FLAT")}
+                    disabled={isUpdating === user.id || user.role === "ADMIN" || user.role === "PAYROLL_APPROVER"}
+                    className="border border-slate-300 rounded-lg p-1.5 text-xs bg-white outline-none disabled:opacity-50"
+                  >
+                    <option value="HOURLY">$/hr</option>
+                    <option value="FLAT">Flat</option>
+                  </select>
                   <span className="text-slate-500">$</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    defaultValue={user.hourlyRate}
-                    onBlur={(e) => {
-                      const newRate = parseFloat(e.target.value);
-                      if (newRate !== user.hourlyRate && !isNaN(newRate)) {
-                        handleRateChange(user.id, newRate);
-                      }
-                    }}
-                    disabled={isUpdating === user.id || user.role === "ADMIN"}
-                    className="border border-slate-300 rounded-lg p-1.5 w-20 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50"
-                  />
+                  {user.payType === "FLAT" ? (
+                    <input
+                      key={`flat-${user.id}`}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      defaultValue={user.flatFee}
+                      title="Flat fee per pay period"
+                      onBlur={(e) => {
+                        const v = parseFloat(e.target.value);
+                        if (v !== user.flatFee && !isNaN(v)) handleFlatFeeChange(user.id, v);
+                      }}
+                      disabled={isUpdating === user.id}
+                      className="border border-slate-300 rounded-lg p-1.5 w-20 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50"
+                    />
+                  ) : (
+                    <input
+                      key={`rate-${user.id}`}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      defaultValue={user.hourlyRate}
+                      title="Hourly rate"
+                      onBlur={(e) => {
+                        const newRate = parseFloat(e.target.value);
+                        if (newRate !== user.hourlyRate && !isNaN(newRate)) {
+                          handleRateChange(user.id, newRate);
+                        }
+                      }}
+                      disabled={isUpdating === user.id || user.role === "ADMIN"}
+                      className="border border-slate-300 rounded-lg p-1.5 w-20 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50"
+                    />
+                  )}
                 </div>
               </td>
               <td className="px-3 py-3 border-b border-slate-100 bg-white text-sm">

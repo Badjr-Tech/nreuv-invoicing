@@ -95,6 +95,8 @@ export default async function EditInvoicePage({ params }: { params: { id: string
         payPeriods={payPeriods}
         hourlyRate={userRecord?.hourlyRate || 0}
         expectedHours={userRecord?.expectedHours ?? null}
+        payType={userRecord?.payType ?? "HOURLY"}
+        flatFee={userRecord?.flatFee ?? 0}
       />
     </div>
   );
