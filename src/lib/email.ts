@@ -124,7 +124,7 @@ export const sendPayrollApprovalRequestEmail = async (
        <tr><td style="padding: 4px 12px 4px 0; color: #64748b;">Approve by</td><td style="padding: 4px 0; font-weight: bold; color: #b91c1c;">${deadline}</td></tr>
      </table>
      ${notes ? `<p style="background: #f8fafc; border-left: 3px solid #94a3b8; padding: 10px 14px;"><strong>Note from the admin:</strong><br/>${notes}</p>` : ""}
-     ${attachmentUrls?.length ? `<p style="background: #f8fafc; border-left: 3px solid #94a3b8; padding: 10px 14px;">📎 ${attachmentUrls.length} payroll screenshot${attachmentUrls.length === 1 ? "" : "s"} attached — sign in below to review ${attachmentUrls.length === 1 ? "it" : "them"}.</p>` : ""}
+     ${attachmentUrls?.length ? `<p style="background: #f8fafc; border-left: 3px solid #94a3b8; padding: 10px 14px;">📎 ${attachmentUrls.length} payroll screenshot${attachmentUrls.length === 1 ? "" : "s"} attached — <a href="${reviewLink}" style="color: #7f1d1d; font-weight: bold;">view ${attachmentUrls.length === 1 ? "it" : "them"} on the review page</a> (sign-in required).</p>` : ""}
      ${button(reviewLink, "Review & Approve Payroll")}
      <p style="color: #64748b; font-size: 13px;">Sign in to review each invoice PDF and approve the run.</p>`
   );
