@@ -17,9 +17,10 @@ interface NewInvoiceClientProps {
   hourlyRate: number;
   nextInvoiceNumber: number;
   globalSchedule: GlobalSchedule | null;
+  expectedHours?: number | null;
 }
 
-export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, nextInvoiceNumber, globalSchedule }: NewInvoiceClientProps) {
+export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, nextInvoiceNumber, globalSchedule, expectedHours }: NewInvoiceClientProps) {
   const router = useRouter();
   
   // Default to the first pay period if available, otherwise today
@@ -372,6 +373,16 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
             ))}
           </div>
           
+          {(() => {
+            const totalHours = items.reduce((sum, item) => sum + (item.hours || 0), 0);
+            return expectedHours && totalHours > expectedHours ? (
+              <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+                ⚠️ You&apos;ve entered <strong>{totalHours} hours</strong>, which is more than the{" "}
+                <strong>{expectedHours} hours</strong> your scope allocates per pay period. You can
+                still submit, but your manager may follow up.
+              </div>
+            ) : null;
+          })()}
           <div className="mt-4 flex justify-end text-lg font-bold text-slate-800">
             Total: ${items.reduce((sum, item) => sum + (item.hours || 0) * hourlyRate, 0).toFixed(2)}
           </div>

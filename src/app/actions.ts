@@ -811,6 +811,15 @@ export async function updateUserRate(userId: string, newRate: number) {
   revalidatePath("/admin/users");
 }
 
+export async function updateUserExpectedHours(userId: string, expectedHours: number | null) {
+  await requireAdmin();
+  if (expectedHours !== null && (isNaN(expectedHours) || expectedHours < 0)) {
+    throw new Error("Expected hours must be a positive number.");
+  }
+  await db.update(users).set({ expectedHours }).where(eq(users.id, userId));
+  revalidatePath("/admin/users");
+}
+
 export async function updateUserManager(userId: string, managerId: string | null) {
   const session = await auth();
 

@@ -58,6 +58,7 @@ export default async function NewInvoicePage() {
         categories={userAssignedCategories.length > 0 ? userAssignedCategories : dbCategories} 
         payPeriods={payPeriods}
         hourlyRate={userRecord?.hourlyRate || 0}
+        expectedHours={userRecord?.expectedHours ?? null}
         nextInvoiceNumber={nextInvoiceNumber}
         globalSchedule={globalSchedule as GlobalSchedule | null}
       />

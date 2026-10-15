@@ -48,6 +48,7 @@ export const users = pgTable("user", {
   role: roleEnum("role").default("USER").notNull(),
   emailVerified: timestamp("email_verified", { mode: "date" }), // Added emailVerified
   hourlyRate: real("hourly_rate").default(0).notNull(), // Added hourlyRate
+  expectedHours: real("expected_hours"), // expected hours per pay period (null = not set)
   managerId: uuid("manager_id").references((): any => users.id),
   companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
   archived: boolean("archived").default(false).notNull(),

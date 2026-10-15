@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { updateUserRole, updateUserRate, updateUserManager, assignBundleToUser, unassignBundleFromUser, updateUserCompany, archiveUser, unarchiveUser } from "@/app/actions";
+import { updateUserRole, updateUserRate, updateUserManager, assignBundleToUser, unassignBundleFromUser, updateUserCompany, archiveUser, unarchiveUser, updateUserExpectedHours } from "@/app/actions";
 import AddUserModal from "./AddUserModal";
 import ResetPasswordModal from "./ResetPasswordModal";
 import { useRouter } from "next/navigation";
@@ -26,6 +26,7 @@ interface User {
   name: string | null;
   email: string;
   hourlyRate: number;
+  expectedHours: number | null;
   role: string;
   managerId: string | null;
   companyId: string | null;
@@ -66,6 +67,19 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
       setUsers(users.map(u => u.id === userId ? { ...u, hourlyRate: newRate } : u));
     } catch (error: any) {
       alert(error.message || "Failed to update user rate.");
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handleExpectedHoursChange = async (userId: string, value: string) => {
+    setIsUpdating(userId);
+    try {
+      const hours = value === "" ? null : parseFloat(value);
+      await updateUserExpectedHours(userId, hours);
+      setUsers(users.map(u => u.id === userId ? { ...u, expectedHours: hours } : u));
+    } catch (error: any) {
+      alert(error.message || "Failed to update expected hours.");
     } finally {
       setIsUpdating(null);
     }
@@ -168,6 +182,9 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
               Hourly Rate
             </th>
             <th className="px-3 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Expected Hrs
+            </th>
+            <th className="px-3 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Role
             </th>
             <th className="px-3 py-3 border-b-2 border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -212,6 +229,24 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
                     className="border border-slate-300 rounded-lg p-1.5 w-20 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50"
                   />
                 </div>
+              </td>
+              <td className="px-3 py-3 border-b border-slate-100 bg-white text-sm">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  placeholder="—"
+                  defaultValue={user.expectedHours ?? ""}
+                  onBlur={(e) => {
+                    const v = e.target.value === "" ? null : parseFloat(e.target.value);
+                    if (v !== user.expectedHours && !(v !== null && isNaN(v))) {
+                      handleExpectedHoursChange(user.id, e.target.value);
+                    }
+                  }}
+                  disabled={isUpdating === user.id || user.role === "ADMIN" || user.role === "PAYROLL_APPROVER"}
+                  className="border border-slate-300 rounded-lg p-1.5 w-20 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50"
+                  title="Expected hours per pay period; leave blank for no limit"
+                />
               </td>
               <td className="px-3 py-3 border-b border-slate-100 bg-white text-sm">
                 <select

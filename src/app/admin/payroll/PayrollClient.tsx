@@ -31,7 +31,7 @@ interface PayrollInvoice {
   status: string;
   totalHours: number;
   totalCost: number;
-  user: { id: string; name: string | null; email: string; archived?: boolean; company: Company | null } | null;
+  user: { id: string; name: string | null; email: string; archived?: boolean; expectedHours?: number | null; company: Company | null } | null;
 }
 
 interface FixedStaffMember {
@@ -367,7 +367,14 @@ export default function PayrollClient({
                         {inv.user?.name || inv.user?.email || "Unknown"}
                         {inv.user?.archived && <span className="ml-2 text-xs text-slate-400 italic">(archived)</span>}
                       </td>
-                      <td className="px-5 py-3 text-slate-500">Invoice #{inv.invoiceNumber} · {inv.totalHours} hrs</td>
+                      <td className="px-5 py-3 text-slate-500">
+                        Invoice #{inv.invoiceNumber} · {inv.totalHours} hrs
+                        {inv.user?.expectedHours != null && inv.totalHours > inv.user.expectedHours && (
+                          <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                            over scope ({inv.user.expectedHours} hrs expected)
+                          </span>
+                        )}
+                      </td>
                       <td className="px-5 py-3">
                         <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
                           inv.status === "APPROVED" ? "bg-green-100 text-green-800" :
