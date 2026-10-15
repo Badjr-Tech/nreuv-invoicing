@@ -1188,23 +1188,41 @@ export async function submitPayrollRun(
     where: and(eq(users.role, "PAYROLL_APPROVER"), eq(users.archived, false)),
   });
   const extraRecipients = [{ id: null as string | null, name: "Admin", email: "Admin@nreuv.com" }];
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nreuv-invoicing.vercel.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://invoicing.nreuvadvisors.com";
   const deadlineText = deadline.toLocaleString("en-US", {
     timeZone: "America/New_York",
     weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
   }) + " ET";
+
+  // Attach the actual screenshot files to the email (the store is private, so
+  // fetch them server-side and embed as attachments).
+  const emailAttachments: { name: string; contentBase64: string }[] = [];
+  for (const s of screenshots) {
+    try {
+      const res = await fetch(s.url, {
+        headers: { authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
+      });
+      if (res.ok) {
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length <= 8 * 1024 * 1024) {
+          emailAttachments.push({ name: s.name || "payroll-screenshot.png", contentBase64: buf.toString("base64") });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch screenshot for email attachment:", e);
+    }
+  }
+
   for (const approver of [...approvers, ...extraRecipients] as { id: string | null; name: string | null; email: string }[]) {
     if (approver.email) {
       await sendPayrollApprovalRequestEmail(
         approver.email,
         approver.name || "there",
         payDate,
-        invoiceTotal + fixedStaffTotal,
-        includedInvoices.length,
         notes.trim() || null,
         deadlineText,
         `${appUrl}/admin/payroll?date=${payDate}`,
-        screenshots.map((s) => s.url)
+        emailAttachments
       );
     }
     if (approver.id) {
