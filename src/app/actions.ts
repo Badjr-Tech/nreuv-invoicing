@@ -1183,16 +1183,17 @@ export async function submitPayrollRun(
     submittedById: session.user.id,
   });
 
-  // Email every payroll approver
+  // Email every payroll approver, plus the main admin inbox
   const approvers = await db.query.users.findMany({
     where: and(eq(users.role, "PAYROLL_APPROVER"), eq(users.archived, false)),
   });
+  const extraRecipients = [{ id: null as string | null, name: "Admin", email: "Admin@nreuv.com" }];
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nreuv-invoicing.vercel.app";
   const deadlineText = deadline.toLocaleString("en-US", {
     timeZone: "America/New_York",
     weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
   }) + " ET";
-  for (const approver of approvers) {
+  for (const approver of [...approvers, ...extraRecipients] as { id: string | null; name: string | null; email: string }[]) {
     if (approver.email) {
       await sendPayrollApprovalRequestEmail(
         approver.email,
@@ -1206,10 +1207,12 @@ export async function submitPayrollRun(
         screenshots.map((s) => s.url)
       );
     }
-    await db.insert(notifications).values({
-      userId: approver.id,
-      message: `Payroll for ${payDate} is ready for your approval — due ${deadlineText}.`,
-    });
+    if (approver.id) {
+      await db.insert(notifications).values({
+        userId: approver.id,
+        message: `Payroll for ${payDate} is ready for your approval — due ${deadlineText}.`,
+      });
+    }
   }
 
   revalidatePath("/admin/payroll");
