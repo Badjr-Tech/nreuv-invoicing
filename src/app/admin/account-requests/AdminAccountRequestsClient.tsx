@@ -25,7 +25,11 @@ export default function AdminAccountRequestsClient({ initialRequests }: AdminAcc
   const handleApprove = async (requestId: string) => {
     try {
       // In a real app, you might ask for a temporary password or send an invitation email
-      await approveAccountRequest(requestId);
+      const res = await approveAccountRequest(requestId);
+      if (res && res.success === false) {
+        alert(res.message);
+        return;
+      }
       setRequests(requests.filter(req => req.id !== requestId));
       alert("Account request approved and user created!");
       router.refresh(); // Refresh data from server

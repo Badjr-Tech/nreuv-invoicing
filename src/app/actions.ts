@@ -188,21 +188,43 @@ interface AccountRequestData {
   message: string;
 }
 
-export async function requestAccount(data: AccountRequestData) {
-  // In a real application, you would:
-  // 1. Validate data more thoroughly (e.g., check for existing email)
-  // 2. Notify an administrator (e.g., via email)
-  // 3. Implement rate limiting to prevent spam
+// Best-effort per-IP rate limit for the public request form (per server instance)
+const requestAccountHits = new Map<string, number[]>();
 
+export async function requestAccount(data: AccountRequestData) {
   if (!data.email || !data.name || !data.message) {
     throw new Error("Missing required fields for account request.");
   }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email) || data.email.length > 254) {
+    throw new Error("Please enter a valid email address.");
+  }
+  if (data.name.length > 200 || data.message.length > 2000) {
+    throw new Error("Name or message is too long.");
+  }
 
-  // Insert the request into the accountRequests table
+  // Rate limit: max 5 submissions per IP per 10 minutes
+  const { headers } = await import("next/headers");
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const now = Date.now();
+  const hits = (requestAccountHits.get(ip) || []).filter((t) => now - t < 10 * 60 * 1000);
+  if (hits.length >= 5) {
+    throw new Error("Too many requests — please try again in a few minutes.");
+  }
+  hits.push(now);
+  requestAccountHits.set(ip, hits);
+
+  // A duplicate email would crash on the unique constraint — handle it kindly.
+  const existingRequest = await db.query.accountRequests.findFirst({
+    where: sql`lower(${accountRequests.email}) = lower(${data.email})`,
+  });
+  if (existingRequest) {
+    return { success: true, message: "Your request has already been received — an admin will review it soon." };
+  }
+
   await db.insert(accountRequests).values({
-    name: data.name,
-    email: data.email,
-    message: data.message,
+    name: data.name.trim(),
+    email: data.email.trim(),
+    message: data.message.trim(),
   });
 
   revalidatePath("/admin/account-requests"); // Revalidate admin page for requests
@@ -228,6 +250,18 @@ export async function approveAccountRequest(requestId: string) {
 
   if (request.status !== "PENDING") {
     throw new Error("Only pending requests can be approved.");
+  }
+
+  // Approving an email that already has an account would crash on the unique
+  // constraint — surface a clear message instead.
+  const existingUser = await db.query.users.findFirst({
+    where: sql`lower(${users.email}) = lower(${request.email})`,
+  });
+  if (existingUser) {
+    return {
+      success: false,
+      message: `${request.email} already has an account${existingUser.archived ? " (archived — restore it in Manage Users instead)" : ""}. Deny this request, or use Reset Password on their existing account.`,
+    };
   }
 
   // 1. Create a new user with a temporary password
