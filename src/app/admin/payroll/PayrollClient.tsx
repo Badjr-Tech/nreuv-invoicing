@@ -148,6 +148,32 @@ export default function PayrollClient({
   const grandTotal = invoiceTotal + fixedTotal;
   const approvedCount = invoices.filter((i) => i.status === "APPROVED").length;
 
+  // Payroll CSV for entry/import into ADP: one row per person
+  const handleExportCsv = () => {
+    const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+    const rows: string[] = [["Name", "Company", "Type", "Hours", "Amount", "Pay Date"].map(esc).join(",")];
+    for (const inv of invoices) {
+      rows.push([
+        inv.user?.name || inv.user?.email || "Unknown",
+        inv.user?.company?.name || "",
+        "Invoice",
+        inv.totalHours,
+        inv.totalCost.toFixed(2),
+        selectedDate,
+      ].map(esc).join(","));
+    }
+    for (const m of fixedStaff) {
+      rows.push([m.name, m.company?.name || "", "Fixed", "", m.monthlyAmount.toFixed(2), selectedDate].map(esc).join(","));
+    }
+    rows.push(["TOTAL", "", "", "", grandTotal.toFixed(2), selectedDate].map(esc).join(","));
+    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `payroll-${selectedDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
@@ -158,6 +184,14 @@ export default function PayrollClient({
           </p>
         </div>
         <div className="flex items-end gap-2">
+          {isAdmin && (invoices.length > 0 || fixedStaff.length > 0) && (
+            <button
+              onClick={handleExportCsv}
+              className="border border-nreuv-primary text-nreuv-primary font-medium px-4 py-2.5 rounded-lg hover:bg-red-50 transition-colors"
+            >
+              ⬇ Export CSV (for ADP)
+            </button>
+          )}
           <div className="flex flex-col">
             <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Payment Date</label>
             <input
