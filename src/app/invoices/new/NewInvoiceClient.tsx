@@ -20,9 +20,10 @@ interface NewInvoiceClientProps {
   expectedHours?: number | null;
   payType?: "HOURLY" | "FLAT";
   flatFee?: number;
+  lastInvoiceItems?: { description: string; hours: number; categoryId: string }[] | null;
 }
 
-export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, nextInvoiceNumber, globalSchedule, expectedHours, payType, flatFee }: NewInvoiceClientProps) {
+export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, nextInvoiceNumber, globalSchedule, expectedHours, payType, flatFee, lastInvoiceItems }: NewInvoiceClientProps) {
   const router = useRouter();
   
   // Default to the first pay period if available, otherwise today
@@ -32,6 +33,16 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
     
   const [invoiceDate, setInvoiceDate] = useState(defaultDateStr);
   const [items, setItems] = useState([{ date: defaultDateStr, description: '', hours: 0, categoryId: '' }]);
+
+  const copyLastInvoice = () => {
+    if (!lastInvoiceItems?.length) return;
+    setItems(lastInvoiceItems.map((it) => ({
+      date: defaultDateStr,
+      description: it.description,
+      hours: it.hours,
+      categoryId: it.categoryId || '',
+    })));
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [itemErrors, setItemErrors] = useState<string[]>([]); // To store individual item errors
@@ -70,12 +81,13 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
     pStart.setHours(0, 0, 0, 0);
     pEnd.setHours(23, 59, 59, 999);
 
-    if (itemDate < pStart || itemDate > pEnd) {
-      newErrors[itemIndex] = "Date is not within the selected payroll period.";
+    if (itemDate > pEnd) {
+      newErrors[itemIndex] = "Date is after the end of the selected payroll period.";
       setItemErrors(newErrors);
       return false;
     }
-    newErrors[itemIndex] = "";
+    // Past time (before the coverage period) is allowed — it just gets billed on this invoice
+    newErrors[itemIndex] = itemDate < pStart ? "ℹ️ Past time — will be billed on this invoice." : "";
     setItemErrors(newErrors);
     return true;
   };
@@ -122,8 +134,9 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
 
         for (let i = 0; i < validItems.length; i++) {
           const itemDate = new Date(validItems[i].date);
-          if (itemDate < pStart || itemDate > pEnd) {
-            throw new Error(`Item at row ${i + 1} has a date (${validItems[i].date}) outside the allowed billing period (${selectedPayPeriod.label}).`);
+          // Past time is allowed (billed on this invoice); only future dates are rejected
+          if (itemDate > pEnd) {
+            throw new Error(`Item at row ${i + 1} has a date (${validItems[i].date}) after the end of the billing period (${selectedPayPeriod.label}).`);
           }
         }
       }
@@ -167,8 +180,9 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
 
         for (let i = 0; i < validItems.length; i++) {
           const itemDate = new Date(validItems[i].date);
-          if (itemDate < pStart || itemDate > pEnd) {
-            throw new Error(`Item at row ${i + 1} has a date (${validItems[i].date}) outside the allowed billing period (${selectedPayPeriod.label}).`);
+          // Past time is allowed (billed on this invoice); only future dates are rejected
+          if (itemDate > pEnd) {
+            throw new Error(`Item at row ${i + 1} has a date (${validItems[i].date}) after the end of the billing period (${selectedPayPeriod.label}).`);
           }
         }
       }
@@ -282,6 +296,16 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
         <div className="mt-8">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold text-slate-800">Invoice Items</h2>
+            {lastInvoiceItems && lastInvoiceItems.length > 0 && (
+              <button
+                type="button"
+                onClick={copyLastInvoice}
+                className="text-sm text-nreuv-primary border border-nreuv-primary rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors mr-2"
+                title="Pre-fill this invoice with the line items from your most recent invoice"
+              >
+                ↻ Copy my last invoice
+              </button>
+            )}
             <button
               type="button"
               onClick={handleAddItem}

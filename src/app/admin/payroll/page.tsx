@@ -68,6 +68,24 @@ export default async function PayrollPage({
     with: { company: true },
   });
 
+  // Previous pay period totals per user, for variance flags
+  const [prevDateRow] = await db
+    .select({ day: dateExpr })
+    .from(invoices)
+    .where(sql`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD') < ${selectedDate}`)
+    .groupBy(dateExpr)
+    .orderBy(desc(dateExpr))
+    .limit(1);
+  let prevTotals: Record<string, number> = {};
+  if (prevDateRow) {
+    const prevInvoices = await db.query.invoices.findMany({
+      where: sql`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD') = ${prevDateRow.day}`,
+    });
+    for (const inv of prevInvoices) {
+      prevTotals[inv.userId] = (prevTotals[inv.userId] || 0) + inv.totalCost;
+    }
+  }
+
   const run = await db.query.payrollRuns.findFirst({
     where: eq(payrollRuns.payDate, selectedDate),
     with: { submittedBy: true, approvedBy: true },
@@ -91,6 +109,8 @@ export default async function PayrollPage({
         approvedAt: run.approvedAt?.toISOString() ?? null,
       } : null}
       currentUserRole={session.user.role}
+      prevTotals={prevTotals}
+      prevDate={prevDateRow?.day ?? null}
     />
   );
 }

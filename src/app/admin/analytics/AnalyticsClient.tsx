@@ -13,10 +13,11 @@ import {
 } from "recharts";
 
 interface AnalyticsClientProps {
-  invoiceMetrics: { period: string; totalAmount: number; totalHours: number }[];
+  invoiceMetrics: { period: string; totalAmount: number; fixedStaffAmount: number; totalHours: number }[];
   categoryBreakdown: { category: string; totalAmount: number; totalHours: number }[];
   userPerformance: { userName: string; totalAmount: number; totalHours: number; avgInvoice: number }[];
   companyBreakdown: { company: string; totalAmount: number; totalHours: number }[];
+  windowMonths: number | null;
 }
 
 const BRAND = "#991b1b"; // NREUV dark red
@@ -32,7 +33,7 @@ function ChartTooltip({ active, payload, label }: any) {
   return (
     <div className="bg-white border border-slate-200 rounded-lg shadow-md px-3 py-2 text-sm">
       <p className="font-semibold text-slate-800">{label ?? row.name}</p>
-      <p className="text-slate-600">{money(row.totalAmount)}</p>
+      <p className="text-slate-600">{money(row.combined ?? row.totalAmount)}</p>
       {row.totalHours !== undefined && <p className="text-slate-500 text-xs">{row.totalHours} hours</p>}
     </div>
   );
@@ -98,11 +99,14 @@ function DetailTable({ headers, rows }: { headers: string[]; rows: (string | num
   );
 }
 
-export default function AnalyticsClient({ invoiceMetrics, categoryBreakdown, userPerformance, companyBreakdown }: AnalyticsClientProps) {
-  const totalPaid = invoiceMetrics.reduce((s, m) => s + m.totalAmount, 0);
+export default function AnalyticsClient({ invoiceMetrics, categoryBreakdown, userPerformance, companyBreakdown, windowMonths }: AnalyticsClientProps) {
+  const totalInvoiced = invoiceMetrics.reduce((s, m) => s + m.totalAmount, 0);
+  const totalFixed = invoiceMetrics.reduce((s, m) => s + m.fixedStaffAmount, 0);
+  const totalPaid = totalInvoiced + totalFixed;
+  const chartData = invoiceMetrics.map((m) => ({ ...m, combined: m.totalAmount + m.fixedStaffAmount }));
   const totalHours = invoiceMetrics.reduce((s, m) => s + m.totalHours, 0);
-  const bestMonth = invoiceMetrics.reduce(
-    (best, m) => (m.totalAmount > (best?.totalAmount ?? -1) ? m : best),
+  const bestMonth = chartData.reduce(
+    (best, m) => (m.combined > (best?.totalAmount ?? -1) ? { period: m.period, totalAmount: m.combined } : best),
     null as null | { period: string; totalAmount: number }
   );
   const avgRate = totalHours > 0 ? totalPaid / totalHours : 0;
@@ -118,14 +122,39 @@ export default function AnalyticsClient({ invoiceMetrics, categoryBreakdown, use
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-nreuv-black mb-6">Analytics</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-nreuv-black">Analytics</h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Approved invoices only, plus fixed-pay staff from approved payroll runs. Pending and draft invoices are never counted.
+          </p>
+        </div>
+        <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+          {[["3", "3 mo"], ["6", "6 mo"], ["12", "12 mo"], ["all", "All time"]].map(([v, label]) => {
+            const active = windowMonths === null ? v === "all" : String(windowMonths) === v;
+            return (
+              <a
+                key={v}
+                href={`/admin/analytics?months=${v}`}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  active ? "bg-white shadow-sm text-nreuv-primary" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                {label}
+              </a>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Headline stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white shadow-sm border border-slate-100 rounded-xl p-4">
           <p className="text-xs font-semibold text-slate-500 uppercase">Total Paid Out</p>
           <p className="text-2xl font-bold text-slate-900 mt-1">{money(totalPaid)}</p>
-          <p className="text-xs text-slate-500 mt-0.5">approved invoices, all time</p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {money(totalInvoiced)} invoices + {money(totalFixed)} fixed staff
+          </p>
         </div>
         <div className="bg-white shadow-sm border border-slate-100 rounded-xl p-4">
           <p className="text-xs font-semibold text-slate-500 uppercase">Total Hours</p>
@@ -146,9 +175,9 @@ export default function AnalyticsClient({ invoiceMetrics, categoryBreakdown, use
 
       {/* Monthly spend */}
       <div className="mb-6">
-        <Card title="Payroll Spend by Month" subtitle="Approved invoice totals per month">
+        <Card title="Payroll Spend by Month" subtitle="Approved invoices + fixed-pay staff from approved runs">
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={invoiceMetrics} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+            <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke={GRID} />
               <XAxis dataKey="period" tickLine={false} axisLine={{ stroke: GRID }} tick={{ fill: "#334155", fontSize: 12 }} />
               <YAxis
@@ -159,12 +188,12 @@ export default function AnalyticsClient({ invoiceMetrics, categoryBreakdown, use
                 width={64}
               />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(148,163,184,0.08)" }} />
-              <Bar dataKey="totalAmount" fill={BRAND} radius={[4, 4, 0, 0]} maxBarSize={48} />
+              <Bar dataKey="combined" fill={BRAND} radius={[4, 4, 0, 0]} maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>
           <DetailTable
-            headers={["Month", "Amount", "Hours"]}
-            rows={invoiceMetrics.map((m) => [m.period, money(m.totalAmount), m.totalHours])}
+            headers={["Month", "Invoices", "Fixed Staff", "Total", "Hours"]}
+            rows={chartData.map((m) => [m.period, money(m.totalAmount), money(m.fixedStaffAmount), money(m.combined), m.totalHours])}
           />
         </Card>
       </div>

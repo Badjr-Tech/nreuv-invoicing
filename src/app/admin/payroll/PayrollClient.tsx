@@ -50,6 +50,8 @@ export default function PayrollClient({
   fixedStaff,
   run,
   currentUserRole,
+  prevTotals,
+  prevDate,
 }: {
   selectedDate: string;
   availableDates: string[];
@@ -57,6 +59,8 @@ export default function PayrollClient({
   fixedStaff: FixedStaffMember[];
   run: RunInfo | null;
   currentUserRole: string;
+  prevTotals: Record<string, number>;
+  prevDate: string | null;
 }) {
   const router = useRouter();
   const [notes, setNotes] = useState("");
@@ -408,6 +412,28 @@ export default function PayrollClient({
                             over scope ({inv.user.expectedHours} hrs expected)
                           </span>
                         )}
+                        {(() => {
+                          if (!prevDate || !inv.user) return null;
+                          const prev = prevTotals[inv.user.id];
+                          if (prev === undefined) {
+                            return (
+                              <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                                new this period
+                              </span>
+                            );
+                          }
+                          const diff = inv.totalCost - prev;
+                          const pct = prev > 0 ? (diff / prev) * 100 : 0;
+                          if (Math.abs(pct) >= 30 && Math.abs(diff) >= 150) {
+                            return (
+                              <span className={`ml-2 text-xs font-semibold px-2 py-0.5 rounded-full ${diff > 0 ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"}`}
+                                title={`Last period (${prevDate}): $${prev.toFixed(2)}`}>
+                                {diff > 0 ? "▲" : "▼"} {Math.abs(pct).toFixed(0)}% vs last period (${prev.toFixed(0)})
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </td>
                       <td className="px-5 py-3">
                         <span className={`text-xs font-semibold px-2 py-1 rounded-full ${

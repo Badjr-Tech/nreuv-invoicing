@@ -58,7 +58,7 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
     pStart.setHours(0, 0, 0, 0);
     pEnd.setHours(23, 59, 59, 999);
 
-    if (itemDate < pStart || itemDate > pEnd) {
+    if (itemDate > pEnd) {
       newErrors[itemIndex] = "Date is not within the selected payroll period.";
       setItemErrors(newErrors);
       return false;
@@ -109,8 +109,9 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
 
         for (let i = 0; i < validItems.length; i++) {
           const itemDate = new Date(validItems[i].date);
-          if (itemDate < pStart || itemDate > pEnd) {
-            throw new Error(`Item at row ${i + 1} has a date (${validItems[i].date}) outside the allowed billing period (${selectedPayPeriod.label}).`);
+          // Past time is allowed (billed on this invoice); only future dates are rejected
+          if (itemDate > pEnd) {
+            throw new Error(`Item at row ${i + 1} has a date (${validItems[i].date}) after the end of the billing period (${selectedPayPeriod.label}).`);
           }
         }
       }
@@ -157,8 +158,9 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
 
         for (let i = 0; i < validItems.length; i++) {
           const itemDate = new Date(validItems[i].date);
-          if (itemDate < pStart || itemDate > pEnd) {
-            throw new Error(`Item at row ${i + 1} has a date (${validItems[i].date}) outside the allowed billing period (${selectedPayPeriod.label}).`);
+          // Past time is allowed (billed on this invoice); only future dates are rejected
+          if (itemDate > pEnd) {
+            throw new Error(`Item at row ${i + 1} has a date (${validItems[i].date}) after the end of the billing period (${selectedPayPeriod.label}).`);
           }
         }
       }

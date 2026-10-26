@@ -61,6 +61,13 @@ export default async function Sidebar() {
               </Link>
             </li>
           )}
+          {(session?.user?.role === "ADMIN" || session?.user?.role === "PAYROLL_APPROVER") && (
+            <li>
+              <Link href="/admin/payroll/history" className="block py-2.5 px-4 rounded transition duration-200 hover:bg-black/20">
+                Payroll History
+              </Link>
+            </li>
+          )}
           {session?.user?.role === "ADMIN" && (
             <li>
               <Link href="/admin/users" className="block py-2.5 px-4 rounded transition duration-200 hover:bg-black/20">

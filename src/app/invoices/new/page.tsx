@@ -24,6 +24,19 @@ export default async function NewInvoicePage() {
   });
   const payPeriods = globalSchedule ? generateUpcomingPayPeriods(globalSchedule as any, 2) : []; // Always the next 2 pay periods
 
+  // Most recent invoice's line items, for the "copy my last invoice" shortcut
+  const lastInvoice = await db.query.invoices.findFirst({
+    where: eq(invoices.userId, session.user.id),
+    orderBy: (inv, { desc }) => [desc(inv.invoiceDate)],
+    with: { items: true },
+  });
+  const lastInvoiceItems =
+    lastInvoice?.items.map((it) => ({
+      description: it.description,
+      hours: it.hours,
+      categoryId: it.categoryId || "",
+    })) ?? null;
+
   const userRecord = await db.query.users.findFirst({
     where: eq(users.id, session.user.id),
     with: {
@@ -61,6 +74,7 @@ export default async function NewInvoicePage() {
         expectedHours={userRecord?.expectedHours ?? null}
         payType={userRecord?.payType ?? "HOURLY"}
         flatFee={userRecord?.flatFee ?? 0}
+        lastInvoiceItems={lastInvoiceItems}
         nextInvoiceNumber={nextInvoiceNumber}
         globalSchedule={globalSchedule as GlobalSchedule | null}
       />
