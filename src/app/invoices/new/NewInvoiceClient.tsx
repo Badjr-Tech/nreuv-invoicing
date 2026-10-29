@@ -21,9 +21,10 @@ interface NewInvoiceClientProps {
   payType?: "HOURLY" | "FLAT";
   flatFee?: number;
   lastInvoiceItems?: { description: string; hours: number; categoryId: string }[] | null;
+  enforceHoursCap?: boolean;
 }
 
-export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, nextInvoiceNumber, globalSchedule, expectedHours, payType, flatFee, lastInvoiceItems }: NewInvoiceClientProps) {
+export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, nextInvoiceNumber, globalSchedule, expectedHours, payType, flatFee, lastInvoiceItems, enforceHoursCap }: NewInvoiceClientProps) {
   const router = useRouter();
   
   // Default to the first pay period if available, otherwise today
@@ -401,13 +402,20 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
           
           {(() => {
             const totalHours = items.reduce((sum, item) => sum + (item.hours || 0), 0);
-            return expectedHours && totalHours > expectedHours ? (
+            if (!expectedHours || totalHours <= expectedHours) return null;
+            return enforceHoursCap ? (
+              <div className="mt-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+                🚫 You&apos;ve entered <strong>{totalHours} hours</strong>, but your limit is{" "}
+                <strong>{expectedHours} hours</strong> per pay period and may not be exceeded. Reduce
+                your hours to submit, or contact your admin.
+              </div>
+            ) : (
               <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
                 ⚠️ You&apos;ve entered <strong>{totalHours} hours</strong>, which is more than the{" "}
                 <strong>{expectedHours} hours</strong> your scope allocates per pay period. You can
                 still submit, but your manager may follow up.
               </div>
-            ) : null;
+            );
           })()}
           <div className="mt-4 flex justify-end text-lg font-bold text-slate-800">
             {payType === "FLAT"

@@ -53,6 +53,7 @@ export const users = pgTable("user", {
   payType: payTypeEnum("pay_type").default("HOURLY").notNull(), // FLAT = fixed fee per invoice, hours recorded for the record
   flatFee: real("flat_fee").default(0).notNull(), // per-pay-period fee when payType is FLAT
   expectedHours: real("expected_hours"), // expected hours per pay period (null = not set)
+  enforceHoursCap: boolean("enforce_hours_cap").default(false).notNull(), // true = expectedHours is a hard do-not-exceed limit
   managerId: uuid("manager_id").references((): any => users.id),
   companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
   archived: boolean("archived").default(false).notNull(),

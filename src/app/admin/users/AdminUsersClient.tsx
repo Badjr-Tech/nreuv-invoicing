@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { updateUserRole, updateUserRate, updateUserManager, assignBundleToUser, unassignBundleFromUser, updateUserCompany, archiveUser, unarchiveUser, updateUserExpectedHours, updateUserPayType } from "@/app/actions";
+import { updateUserRole, updateUserRate, updateUserManager, assignBundleToUser, unassignBundleFromUser, updateUserCompany, archiveUser, unarchiveUser, updateUserExpectedHours, updateUserPayType, updateUserHoursCapEnforced } from "@/app/actions";
 import AddUserModal from "./AddUserModal";
 import ResetPasswordModal from "./ResetPasswordModal";
 import { useRouter } from "next/navigation";
@@ -29,6 +29,7 @@ interface User {
   payType: "HOURLY" | "FLAT";
   flatFee: number;
   expectedHours: number | null;
+  enforceHoursCap: boolean;
   role: string;
   managerId: string | null;
   companyId: string | null;
@@ -301,6 +302,25 @@ export default function AdminUsersClient({ initialUsers, potentialManagers, allC
                   className="border border-slate-300 rounded-lg p-1.5 w-20 text-sm focus:ring-2 focus:ring-nreuv-accent outline-none bg-white disabled:opacity-50"
                   title="Expected hours per pay period; leave blank for no limit"
                 />
+                {user.expectedHours != null && (
+                  <label className="flex items-center gap-1.5 mt-1.5 text-xs text-slate-600 cursor-pointer" title="When checked, invoices over the limit are blocked, not just warned">
+                    <input
+                      type="checkbox"
+                      checked={user.enforceHoursCap}
+                      onChange={async (e) => {
+                        const enforce = e.target.checked;
+                        try {
+                          await updateUserHoursCapEnforced(user.id, enforce);
+                          setUsers(users.map(u => u.id === user.id ? { ...u, enforceHoursCap: enforce } : u));
+                        } catch (err: any) {
+                          alert(err.message || "Failed to update.");
+                        }
+                      }}
+                      disabled={isUpdating === user.id}
+                    />
+                    <span className={user.enforceHoursCap ? "font-semibold text-red-700" : ""}>Do not exceed</span>
+                  </label>
+                )}
               </td>
               <td className="px-3 py-3 border-b border-slate-100 bg-white text-sm">
                 <select

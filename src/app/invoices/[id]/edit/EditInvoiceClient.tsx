@@ -20,9 +20,10 @@ interface EditInvoiceClientProps {
   expectedHours?: number | null;
   payType?: "HOURLY" | "FLAT";
   flatFee?: number;
+  enforceHoursCap?: boolean;
 }
 
-export default function EditInvoiceClient({ invoice, categories, payPeriods, hourlyRate, expectedHours, payType, flatFee }: EditInvoiceClientProps) {
+export default function EditInvoiceClient({ invoice, categories, payPeriods, hourlyRate, expectedHours, payType, flatFee, enforceHoursCap }: EditInvoiceClientProps) {
   const router = useRouter();
   
   // Format dates for input fields
@@ -362,13 +363,20 @@ export default function EditInvoiceClient({ invoice, categories, payPeriods, hou
           
           {(() => {
             const totalHours = items.reduce((sum: number, item: any) => sum + (item.hours || 0), 0);
-            return expectedHours && totalHours > expectedHours ? (
+            if (!expectedHours || totalHours <= expectedHours) return null;
+            return enforceHoursCap ? (
+              <div className="mt-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+                🚫 You&apos;ve entered <strong>{totalHours} hours</strong>, but your limit is{" "}
+                <strong>{expectedHours} hours</strong> per pay period and may not be exceeded. Reduce
+                your hours to save, or contact your admin.
+              </div>
+            ) : (
               <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
                 ⚠️ You&apos;ve entered <strong>{totalHours} hours</strong>, which is more than the{" "}
                 <strong>{expectedHours} hours</strong> your scope allocates per pay period. You can
                 still submit, but your manager may follow up.
               </div>
-            ) : null;
+            );
           })()}
           <div className="mt-4 flex justify-end text-lg font-bold text-slate-800">
             {payType === "FLAT"

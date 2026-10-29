@@ -409,6 +409,13 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
     totalCost = userRecord.flatFee;
   }
 
+  // Hard "do not exceed" cap
+  if (userRecord.enforceHoursCap && userRecord.expectedHours != null && totalHours > userRecord.expectedHours) {
+    throw new Error(
+      `This invoice has ${totalHours} hours, but your do-not-exceed limit is ${userRecord.expectedHours} hours per pay period. Please reduce your hours or contact your admin.`
+    );
+  }
+
   const [newInvoice] = await db
     .insert(invoices)
     .values({
@@ -521,6 +528,13 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
       // Flat-fee contractors record hours for the record, but always invoice their fee
       if (ownerRecord.payType === "FLAT") {
         newTotalCost = ownerRecord.flatFee;
+      }
+
+      // Hard "do not exceed" cap
+      if (ownerRecord.enforceHoursCap && ownerRecord.expectedHours != null && newTotalHours > ownerRecord.expectedHours) {
+        throw new Error(
+          `This invoice has ${newTotalHours} hours, but the do-not-exceed limit is ${ownerRecord.expectedHours} hours per pay period.`
+        );
       }
     
       // Update invoice details
@@ -883,6 +897,12 @@ export async function updateUserExpectedHours(userId: string, expectedHours: num
     throw new Error("Expected hours must be a positive number.");
   }
   await db.update(users).set({ expectedHours }).where(eq(users.id, userId));
+  revalidatePath("/admin/users");
+}
+
+export async function updateUserHoursCapEnforced(userId: string, enforce: boolean) {
+  await requireAdmin();
+  await db.update(users).set({ enforceHoursCap: enforce }).where(eq(users.id, userId));
   revalidatePath("/admin/users");
 }
 
