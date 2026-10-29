@@ -897,6 +897,61 @@ export async function updateUserRole(userId: string, newRole: "ADMIN" | "PAYROLL
   revalidatePath("/admin/users");
 }
 
+// Reprice all of a user's not-yet-approved invoices from their CURRENT pay
+// settings, so rate/fee/cap changes take effect in real time. Approved
+// invoices are never touched — that money is already signed off.
+async function repriceUnapprovedInvoices(userId: string) {
+  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!user) return;
+
+  const open = await db.query.invoices.findMany({
+    where: and(eq(invoices.userId, userId), sql`${invoices.status} != 'APPROVED'`),
+  });
+  if (open.length === 0) return;
+
+  // Hours already locked in by approved invoices count against the cap first
+  const approved = await db.query.invoices.findMany({
+    where: and(eq(invoices.userId, userId), eq(invoices.status, "APPROVED")),
+  });
+  const dayOf = (d: Date) => d.toISOString().slice(0, 10);
+  const approvedHoursByDay = new Map<string, number>();
+  for (const inv of approved) {
+    const k = dayOf(inv.invoiceDate);
+    approvedHoursByDay.set(k, (approvedHoursByDay.get(k) || 0) + inv.totalHours);
+  }
+
+  // Group open invoices by pay date so the do-not-exceed cap stays cumulative
+  const byDay = new Map<string, typeof open>();
+  for (const inv of open) {
+    const k = dayOf(inv.invoiceDate);
+    if (!byDay.has(k)) byDay.set(k, []);
+    byDay.get(k)!.push(inv);
+  }
+
+  for (const [day, dayInvoices] of byDay) {
+    // Drafts don't consume the cap; price submitted ones first, in order
+    const ordered = [...dayInvoices].sort((a, b) =>
+      (a.status === "DRAFT" ? 1 : 0) - (b.status === "DRAFT" ? 1 : 0) || a.invoiceNumber - b.invoiceNumber
+    );
+    let hoursUsed = approvedHoursByDay.get(day) || 0;
+    for (const inv of ordered) {
+      await db.update(invoiceItems).set({ rate: user.hourlyRate }).where(eq(invoiceItems.invoiceId, inv.id));
+      let cost = inv.totalHours * user.hourlyRate;
+      if (user.enforceHoursCap && user.expectedHours != null) {
+        const remaining = Math.max(0, user.expectedHours - hoursUsed);
+        cost = Math.min(inv.totalHours, remaining) * user.hourlyRate;
+      }
+      if (user.payType === "FLAT") {
+        cost = user.flatFee;
+      }
+      if (inv.status !== "DRAFT") hoursUsed += inv.totalHours;
+      await db.update(invoices).set({ totalCost: cost }).where(eq(invoices.id, inv.id));
+    }
+  }
+  revalidatePath("/admin/payroll");
+  revalidatePath("/");
+}
+
 export async function updateUserRate(userId: string, newRate: number) {
   const session = await auth();
 
@@ -909,6 +964,7 @@ export async function updateUserRate(userId: string, newRate: number) {
   }
 
   await db.update(users).set({ hourlyRate: newRate }).where(eq(users.id, userId));
+  await repriceUnapprovedInvoices(userId); // rate changes apply in real time to unapproved invoices
   revalidatePath("/admin/users");
 }
 
@@ -921,6 +977,7 @@ export async function updateUserPayType(userId: string, payType: "HOURLY" | "FLA
     payType,
     ...(flatFee !== undefined ? { flatFee } : {}),
   }).where(eq(users.id, userId));
+  await repriceUnapprovedInvoices(userId);
   revalidatePath("/admin/users");
 }
 
@@ -930,12 +987,14 @@ export async function updateUserExpectedHours(userId: string, expectedHours: num
     throw new Error("Expected hours must be a positive number.");
   }
   await db.update(users).set({ expectedHours }).where(eq(users.id, userId));
+  await repriceUnapprovedInvoices(userId); // cap changes apply in real time
   revalidatePath("/admin/users");
 }
 
 export async function updateUserHoursCapEnforced(userId: string, enforce: boolean) {
   await requireAdmin();
   await db.update(users).set({ enforceHoursCap: enforce }).where(eq(users.id, userId));
+  await repriceUnapprovedInvoices(userId); // cap on/off applies in real time
   revalidatePath("/admin/users");
 }
 
