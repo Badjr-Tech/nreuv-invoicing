@@ -52,6 +52,7 @@ export default function PayrollClient({
   currentUserRole,
   prevTotals,
   prevDate,
+  draftCount,
 }: {
   selectedDate: string;
   availableDates: string[];
@@ -61,6 +62,7 @@ export default function PayrollClient({
   currentUserRole: string;
   prevTotals: Record<string, number>;
   prevDate: string | null;
+  draftCount: number;
 }) {
   const router = useRouter();
   const [notes, setNotes] = useState("");
@@ -370,6 +372,9 @@ export default function PayrollClient({
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
           <p className="text-xs font-semibold text-slate-500 uppercase">Invoices ({invoices.length}, {approvedCount} approved)</p>
           <p className="text-2xl font-bold text-slate-900 mt-1">${invoiceTotal.toFixed(2)}</p>
+          {draftCount > 0 && (
+            <p className="text-xs text-slate-500 mt-0.5">{draftCount} draft{draftCount === 1 ? "" : "s"} not included</p>
+          )}
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
           <p className="text-xs font-semibold text-slate-500 uppercase">Fixed-Pay Staff ({fixedStaff.length})</p>

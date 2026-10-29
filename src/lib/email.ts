@@ -139,3 +139,19 @@ export const sendPayrollApprovalRequestEmail = async (
     "djmj@nreuv.com"
   );
 };
+
+export const sendDraftReminderEmail = async (
+  to: string,
+  name: string,
+  draftCount: number,
+  invoicesLink: string,
+) => {
+  await sendEmail(
+    to,
+    "Don't forget to submit your invoice",
+    `<h2 style="color: #7f1d1d;">You have ${draftCount === 1 ? "an unsubmitted invoice" : `${draftCount} unsubmitted invoices`}</h2>
+     <p>Hi ${name},</p>
+     <p>You have ${draftCount === 1 ? "a draft invoice" : `${draftCount} draft invoices`} that ${draftCount === 1 ? "hasn't" : "haven't"} been submitted yet. Drafts are <strong>not included in payroll</strong> — if you don't submit before the deadline, you won't be paid for ${draftCount === 1 ? "it" : "them"} this period.</p>
+     ${button(invoicesLink, "Review & Submit My Invoice")}`
+  );
+};

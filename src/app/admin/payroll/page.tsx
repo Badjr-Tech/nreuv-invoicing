@@ -57,11 +57,14 @@ export default async function PayrollPage({
   const selectedDate =
     date || nextPeriod || (allDates.length > 0 ? allDates[0].day : today);
 
-  const dayInvoices = await db.query.invoices.findMany({
+  // Drafts are never part of payroll — only submitted/approved invoices count
+  const allDayInvoices = await db.query.invoices.findMany({
     where: sql`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD') = ${selectedDate}`,
     with: { user: { with: { company: true } } },
     orderBy: [desc(invoices.totalCost)],
   });
+  const dayInvoices = allDayInvoices.filter((i) => i.status !== "DRAFT");
+  const draftCount = allDayInvoices.length - dayInvoices.length;
 
   const activeFixedStaff = await db.query.fixedStaff.findMany({
     where: eq(fixedStaff.active, true),
@@ -111,6 +114,7 @@ export default async function PayrollPage({
       currentUserRole={session.user.role}
       prevTotals={prevTotals}
       prevDate={prevDateRow?.day ?? null}
+      draftCount={draftCount}
     />
   );
 }
