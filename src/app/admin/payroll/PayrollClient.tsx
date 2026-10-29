@@ -136,6 +136,18 @@ export default function PayrollClient({
     }
   };
 
+  // Per-person totals across the whole period (some people submit one invoice per week)
+  const userPeriodHours = new Map<string, number>();
+  const userPeriodCost = new Map<string, number>();
+  const firstInvoiceOfUser = new Map<string, string>();
+  for (const inv of invoices) {
+    const uid = inv.user?.id;
+    if (!uid) continue;
+    userPeriodHours.set(uid, (userPeriodHours.get(uid) || 0) + inv.totalHours);
+    userPeriodCost.set(uid, (userPeriodCost.get(uid) || 0) + inv.totalCost);
+    if (!firstInvoiceOfUser.has(uid)) firstInvoiceOfUser.set(uid, inv.id);
+  }
+
   // Group invoices and fixed staff under their company name
   const groups = new Map<string, { invoices: PayrollInvoice[]; staff: FixedStaffMember[] }>();
   const groupOf = (name: string) => {
@@ -412,35 +424,42 @@ export default function PayrollClient({
                       </td>
                       <td className="px-5 py-3 text-slate-500">
                         <span className="whitespace-nowrap">Invoice #{inv.invoiceNumber} · {inv.totalHours} hrs</span>
-                        <span className="flex flex-wrap gap-1.5 mt-1">
-                          {inv.user?.expectedHours != null && inv.totalHours > inv.user.expectedHours && (
-                            <span className="whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                              over scope · {inv.user.expectedHours} hrs expected
-                            </span>
-                          )}
-                          {(() => {
-                            if (!prevDate || !inv.user) return null;
-                            const prev = prevTotals[inv.user.id];
-                            if (prev === undefined) {
-                              return (
-                                <span className="whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                                  new this period
+                        {/* Period-level badges, shown once per person on their first invoice */}
+                        {inv.user && firstInvoiceOfUser.get(inv.user.id) === inv.id && (
+                          <span className="flex flex-wrap gap-1.5 mt-1">
+                            {(() => {
+                              const totalH = userPeriodHours.get(inv.user!.id) || 0;
+                              return inv.user!.expectedHours != null && totalH > inv.user!.expectedHours ? (
+                                <span className="whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                                  {totalH} hrs this period · {inv.user!.expectedHours} expected
                                 </span>
-                              );
-                            }
-                            const diff = inv.totalCost - prev;
-                            const pct = prev > 0 ? (diff / prev) * 100 : 0;
-                            if (Math.abs(pct) >= 30 && Math.abs(diff) >= 150) {
-                              return (
-                                <span className={`whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full ${diff > 0 ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"}`}
-                                  title={`Last period (${prevDate}): $${prev.toFixed(2)}`}>
-                                  {diff > 0 ? "▲" : "▼"} {Math.abs(pct).toFixed(0)}% vs last
-                                </span>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </span>
+                              ) : null;
+                            })()}
+                            {(() => {
+                              if (!prevDate) return null;
+                              const prev = prevTotals[inv.user!.id];
+                              if (prev === undefined) {
+                                return (
+                                  <span className="whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                                    new this period
+                                  </span>
+                                );
+                              }
+                              const cur = userPeriodCost.get(inv.user!.id) || 0;
+                              const diff = cur - prev;
+                              const pct = prev > 0 ? (diff / prev) * 100 : 0;
+                              if (Math.abs(pct) >= 30 && Math.abs(diff) >= 150) {
+                                return (
+                                  <span className={`whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full ${diff > 0 ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"}`}
+                                    title={`This period: $${cur.toFixed(2)} · last period (${prevDate}): $${prev.toFixed(2)}`}>
+                                    {diff > 0 ? "▲" : "▼"} {Math.abs(pct).toFixed(0)}% vs last period
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3 w-36 whitespace-nowrap align-top">
                         <span className={`text-xs font-semibold px-2 py-1 rounded-full ${

@@ -404,9 +404,23 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
     totalCost += item.hours * userRate;
   }
 
-  // Do-not-exceed cap: all hours are recorded, but pay is capped at the limit
-  if (userRecord.enforceHoursCap && userRecord.expectedHours != null && totalHours > userRecord.expectedHours) {
-    totalCost = userRecord.expectedHours * userRate;
+  // Do-not-exceed cap applies across the whole pay period: some people submit
+  // two invoices (one per week), so count their other invoices for this pay
+  // date before deciding how many of this invoice's hours are payable.
+  if (userRecord.enforceHoursCap && userRecord.expectedHours != null) {
+    const payDay = paymentDate.toISOString().slice(0, 10);
+    const siblings = await db.query.invoices.findMany({
+      where: and(
+        eq(invoices.userId, userId),
+        sql`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD') = ${payDay}`,
+        sql`${invoices.status} != 'DRAFT'`
+      ),
+    });
+    const otherHours = siblings.reduce((s, i) => s + i.totalHours, 0);
+    const remainingCap = Math.max(0, userRecord.expectedHours - otherHours);
+    if (totalHours > remainingCap) {
+      totalCost = remainingCap * userRate;
+    }
   }
 
   // Flat-fee contractors record hours for the record, but always invoice their fee
@@ -523,9 +537,23 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
         newTotalCost += item.hours * ownerRate;
       }
 
-      // Do-not-exceed cap: all hours are recorded, but pay is capped at the limit
-      if (ownerRecord.enforceHoursCap && ownerRecord.expectedHours != null && newTotalHours > ownerRecord.expectedHours) {
-        newTotalCost = ownerRecord.expectedHours * ownerRate;
+      // Do-not-exceed cap applies across the whole pay period (people may have
+      // multiple invoices per period) — exclude this invoice itself
+      if (ownerRecord.enforceHoursCap && ownerRecord.expectedHours != null) {
+        const payDay = paymentDate.toISOString().slice(0, 10);
+        const siblings = await db.query.invoices.findMany({
+          where: and(
+            eq(invoices.userId, existingInvoice.userId),
+            sql`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD') = ${payDay}`,
+            sql`${invoices.status} != 'DRAFT'`,
+            sql`${invoices.id} != ${invoiceData.id}`
+          ),
+        });
+        const otherHours = siblings.reduce((s, i) => s + i.totalHours, 0);
+        const remainingCap = Math.max(0, ownerRecord.expectedHours - otherHours);
+        if (newTotalHours > remainingCap) {
+          newTotalCost = remainingCap * ownerRate;
+        }
       }
 
       // Flat-fee contractors record hours for the record, but always invoice their fee
