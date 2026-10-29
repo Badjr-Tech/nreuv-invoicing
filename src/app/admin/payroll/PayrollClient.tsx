@@ -406,49 +406,51 @@ export default function PayrollClient({
                 <tbody>
                   {g.invoices.map((inv) => (
                     <tr key={inv.id} className="border-b border-slate-50">
-                      <td className="px-5 py-3 font-medium text-slate-800">
+                      <td className="px-5 py-3 font-medium text-slate-800 whitespace-nowrap w-44 align-top">
                         {inv.user?.name || inv.user?.email || "Unknown"}
                         {inv.user?.archived && <span className="ml-2 text-xs text-slate-400 italic">(archived)</span>}
                       </td>
                       <td className="px-5 py-3 text-slate-500">
-                        Invoice #{inv.invoiceNumber} · {inv.totalHours} hrs
-                        {inv.user?.expectedHours != null && inv.totalHours > inv.user.expectedHours && (
-                          <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                            over scope ({inv.user.expectedHours} hrs expected)
-                          </span>
-                        )}
-                        {(() => {
-                          if (!prevDate || !inv.user) return null;
-                          const prev = prevTotals[inv.user.id];
-                          if (prev === undefined) {
-                            return (
-                              <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                                new this period
-                              </span>
-                            );
-                          }
-                          const diff = inv.totalCost - prev;
-                          const pct = prev > 0 ? (diff / prev) * 100 : 0;
-                          if (Math.abs(pct) >= 30 && Math.abs(diff) >= 150) {
-                            return (
-                              <span className={`ml-2 text-xs font-semibold px-2 py-0.5 rounded-full ${diff > 0 ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"}`}
-                                title={`Last period (${prevDate}): $${prev.toFixed(2)}`}>
-                                {diff > 0 ? "▲" : "▼"} {Math.abs(pct).toFixed(0)}% vs last period (${prev.toFixed(0)})
-                              </span>
-                            );
-                          }
-                          return null;
-                        })()}
+                        <span className="whitespace-nowrap">Invoice #{inv.invoiceNumber} · {inv.totalHours} hrs</span>
+                        <span className="flex flex-wrap gap-1.5 mt-1">
+                          {inv.user?.expectedHours != null && inv.totalHours > inv.user.expectedHours && (
+                            <span className="whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                              over scope · {inv.user.expectedHours} hrs expected
+                            </span>
+                          )}
+                          {(() => {
+                            if (!prevDate || !inv.user) return null;
+                            const prev = prevTotals[inv.user.id];
+                            if (prev === undefined) {
+                              return (
+                                <span className="whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                                  new this period
+                                </span>
+                              );
+                            }
+                            const diff = inv.totalCost - prev;
+                            const pct = prev > 0 ? (diff / prev) * 100 : 0;
+                            if (Math.abs(pct) >= 30 && Math.abs(diff) >= 150) {
+                              return (
+                                <span className={`whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full ${diff > 0 ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"}`}
+                                  title={`Last period (${prevDate}): $${prev.toFixed(2)}`}>
+                                  {diff > 0 ? "▲" : "▼"} {Math.abs(pct).toFixed(0)}% vs last
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </span>
                       </td>
-                      <td className="px-5 py-3">
+                      <td className="px-5 py-3 w-36 whitespace-nowrap align-top">
                         <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
                           inv.status === "APPROVED" ? "bg-green-100 text-green-800" :
                           inv.status === "DRAFT" ? "bg-yellow-100 text-yellow-800" :
                           "bg-blue-100 text-blue-800"
-                        }`}>{inv.status}</span>
+                        }`}>{inv.status.replace("_", " ")}</span>
                       </td>
-                      <td className="px-5 py-3 text-right font-medium text-slate-900">${inv.totalCost.toFixed(2)}</td>
-                      <td className="px-5 py-3 text-right">
+                      <td className="px-5 py-3 text-right font-medium text-slate-900 whitespace-nowrap w-28 align-top">${inv.totalCost.toFixed(2)}</td>
+                      <td className="px-5 py-3 text-right whitespace-nowrap w-28 align-top">
                         <span className="inline-flex items-center gap-3">
                           {isAdmin && (
                             <Link href={`/invoices/${inv.id}`} className="text-nreuv-primary hover:underline">View</Link>

@@ -404,16 +404,14 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
     totalCost += item.hours * userRate;
   }
 
+  // Do-not-exceed cap: all hours are recorded, but pay is capped at the limit
+  if (userRecord.enforceHoursCap && userRecord.expectedHours != null && totalHours > userRecord.expectedHours) {
+    totalCost = userRecord.expectedHours * userRate;
+  }
+
   // Flat-fee contractors record hours for the record, but always invoice their fee
   if (userRecord.payType === "FLAT") {
     totalCost = userRecord.flatFee;
-  }
-
-  // Hard "do not exceed" cap
-  if (userRecord.enforceHoursCap && userRecord.expectedHours != null && totalHours > userRecord.expectedHours) {
-    throw new Error(
-      `This invoice has ${totalHours} hours, but your do-not-exceed limit is ${userRecord.expectedHours} hours per pay period. Please reduce your hours or contact your admin.`
-    );
   }
 
   const [newInvoice] = await db
@@ -525,16 +523,14 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
         newTotalCost += item.hours * ownerRate;
       }
 
+      // Do-not-exceed cap: all hours are recorded, but pay is capped at the limit
+      if (ownerRecord.enforceHoursCap && ownerRecord.expectedHours != null && newTotalHours > ownerRecord.expectedHours) {
+        newTotalCost = ownerRecord.expectedHours * ownerRate;
+      }
+
       // Flat-fee contractors record hours for the record, but always invoice their fee
       if (ownerRecord.payType === "FLAT") {
         newTotalCost = ownerRecord.flatFee;
-      }
-
-      // Hard "do not exceed" cap
-      if (ownerRecord.enforceHoursCap && ownerRecord.expectedHours != null && newTotalHours > ownerRecord.expectedHours) {
-        throw new Error(
-          `This invoice has ${newTotalHours} hours, but the do-not-exceed limit is ${ownerRecord.expectedHours} hours per pay period.`
-        );
       }
     
       // Update invoice details

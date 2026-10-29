@@ -405,9 +405,9 @@ export default function NewInvoiceClient({ categories, payPeriods, hourlyRate, n
             if (!expectedHours || totalHours <= expectedHours) return null;
             return enforceHoursCap ? (
               <div className="mt-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
-                🚫 You&apos;ve entered <strong>{totalHours} hours</strong>, but your limit is{" "}
-                <strong>{expectedHours} hours</strong> per pay period and may not be exceeded. Reduce
-                your hours to submit, or contact your admin.
+                🚫 You&apos;ve entered <strong>{totalHours} hours</strong>, but your do-not-exceed limit is{" "}
+                <strong>{expectedHours} hours</strong> per pay period. All hours are recorded, but this
+                invoice will pay for <strong>{expectedHours} hours (${(expectedHours * hourlyRate).toFixed(2)})</strong>.
               </div>
             ) : (
               <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
