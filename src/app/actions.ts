@@ -664,6 +664,7 @@ export async function updateInvoiceStatus(invoiceId: string, newStatus: "PENDING
     PENDING_ADMIN: ["APPROVED"],
     APPROVED: [], // Once approved, it's permanently locked
     SENT: ["PENDING_ADMIN", "APPROVED"], // For backward compatibility with older "SENT" status
+    DEFERRED: ["PENDING_ADMIN", "APPROVED"], // deferred invoices remain approvable in the next cycle
   };
 
   if (!allowedTransitions[invoiceRecord.status].includes(newStatus)) {
@@ -738,11 +739,19 @@ export async function deferInvoice(invoiceId: string) {
     throw new Error("Could not determine the next pay cycle.");
   }
 
+  // Mark it DEFERRED and move it to the next pay cycle. It stays submitted
+  // and is included (and approvable) in the next payroll run automatically.
   await db.update(invoices).set({
     invoiceDate: nextPeriod.invoiceDate,
     dueDate: nextPeriod.submissionDeadline,
-    status: "DRAFT", // Moving it back to DRAFT so the user knows it needs attention, or could leave it PENDING. Let's keep it DRAFT so they can adjust hours if needed.
+    status: "DEFERRED",
   }).where(eq(invoices.id, invoiceId));
+
+  // Let the contractor know their payment moved
+  await db.insert(notifications).values({
+    userId: invoiceRecord.userId,
+    message: `Your invoice #${invoiceRecord.invoiceNumber} was deferred to the ${format(new Date(nextPeriod.invoiceDate), "MMM dd, yyyy")} pay date. No action needed — it stays submitted.`,
+  });
 
   revalidatePath("/");
   revalidatePath(`/invoices/${invoiceId}`);
@@ -1367,7 +1376,7 @@ export async function approvePayrollRun(payDate: string) {
   const dayMatch = sql`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD') = ${payDate}`;
   const dayInvoices = await db.query.invoices.findMany({ where: dayMatch });
   const pending = dayInvoices.filter(
-    (i) => i.status === "PENDING_MANAGER" || i.status === "PENDING_ADMIN" || i.status === "SENT"
+    (i) => i.status === "PENDING_MANAGER" || i.status === "PENDING_ADMIN" || i.status === "SENT" || i.status === "DEFERRED"
   );
   if (pending.length > 0) {
     await db

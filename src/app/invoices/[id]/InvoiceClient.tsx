@@ -126,6 +126,19 @@ export default function InvoiceClient({ invoice, currentUserRole, currentUserId 
               ))}
             </tbody>
             <tfoot>
+              {(() => {
+                const lineSum = invoice.items.reduce((s: number, it: any) => s + it.hours * it.rate, 0);
+                if (lineSum > invoice.totalCost + 0.005) {
+                  return (
+                    <tr>
+                      <td colSpan={5} className="py-2 px-4 text-right text-sm text-amber-700">
+                        Line items total ${lineSum.toFixed(2)}, but pay is capped at the do-not-exceed / flat-pay amount below. All hours remain on record.
+                      </td>
+                    </tr>
+                  );
+                }
+                return null;
+              })()}
               <tr className="border-t-2 border-slate-200">
                 <td colSpan={4} className="py-4 px-4 text-right font-bold text-slate-700">Grand Total:</td>
                 <td className="py-4 px-4 text-right font-bold text-lg text-nreuv-primary">${invoice.totalCost.toFixed(2)}</td>

@@ -26,6 +26,7 @@ export const invoiceStatusEnum = pgEnum("invoice_status", [
   "PENDING_MANAGER",
   "PENDING_ADMIN",
   "APPROVED",
+  "DEFERRED", // pushed to the next pay cycle; still submitted and payable there
 ]);
 
 export const payTypeEnum = pgEnum("pay_type", ["HOURLY", "FLAT"]);
