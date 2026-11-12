@@ -1050,6 +1050,38 @@ export async function resetUserPassword(userId: string, newPassword: string) {
   revalidatePath("/admin/users");
 }
 
+// Public "forgot password" — always answers the same way so email addresses
+// can't be probed; only real, non-archived accounts actually get an email.
+const forgotPasswordHits = new Map<string, number[]>();
+
+export async function requestPasswordReset(email: string) {
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("Please enter a valid email address.");
+  }
+
+  const { headers } = await import("next/headers");
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const now = Date.now();
+  const hits = (forgotPasswordHits.get(ip) || []).filter((t) => now - t < 10 * 60 * 1000);
+  if (hits.length >= 5) {
+    throw new Error("Too many requests — please try again in a few minutes.");
+  }
+  hits.push(now);
+  forgotPasswordHits.set(ip, hits);
+
+  const user = await db.query.users.findFirst({
+    where: sql`lower(${users.email}) = lower(${email.trim()})`,
+  });
+  if (user && !user.archived) {
+    const token = await generatePasswordResetToken(user.id);
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://invoicing.nreuvadvisors.com";
+    const { sendPasswordResetEmail } = await import("@/lib/email");
+    await sendPasswordResetEmail(user.email, user.name, `${appUrl}/auth/set-password?token=${token}`);
+  }
+
+  return { success: true, message: "If that email has an account, a reset link is on its way. Check spam too." };
+}
+
 export async function resetOwnPassword(currentPassword: string, newPassword: string) {
   const session = await auth();
 

@@ -60,7 +60,10 @@ export default function SignInClient() {
         >
           {isPending ? "Signing In..." : "Sign In"}
         </button>
-        <div className="text-center mt-6">
+        <div className="text-center mt-6 flex justify-center gap-6">
+          <Link href="/auth/forgot-password" className="inline-block align-baseline font-medium text-sm text-nreuv-primary hover:text-nreuv-accent transition-colors">
+            Forgot Password?
+          </Link>
           <Link href="/auth/request-account" className="inline-block align-baseline font-medium text-sm text-nreuv-primary hover:text-nreuv-accent transition-colors">
             Request an Account
           </Link>

@@ -155,3 +155,15 @@ export const sendDraftReminderEmail = async (
      ${button(invoicesLink, "Review & Submit My Invoice")}`
   );
 };
+
+export const sendPasswordResetEmail = async (to: string, name: string, resetLink: string) => {
+  await sendEmail(
+    to,
+    "Reset your NREUV Invoicing password",
+    `<h2 style="color: #7f1d1d;">Password reset</h2>
+     <p>Hi ${name},</p>
+     <p>We received a request to reset your password. Click below to choose a new one. The link is valid for 24 hours.</p>
+     ${button(resetLink, "Reset My Password")}
+     <p style="color: #64748b; font-size: 13px;">If you didn't request this, you can safely ignore this email — your password is unchanged.</p>`
+  );
+};
