@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { upload } from "@vercel/blob/client";
-import { submitPayrollRun, approvePayrollRun } from "@/app/actions";
+import { submitPayrollRun, approvePayrollRun, refreshPayrollRun, withdrawPayrollRun, addPayrollRunScreenshot } from "@/app/actions";
 import DownloadPdfButton from "@/components/dashboard/DownloadPdfButton";
 
 interface RunInfo {
@@ -117,6 +117,56 @@ export default function PayrollClient({
       router.refresh();
     } catch (e: any) {
       alert(e.message || "Failed to submit payroll run.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRefreshRun = async () => {
+    if (!confirm("Update this run's totals to match the current invoices? The approver will be notified of the new numbers.")) return;
+    setBusy(true);
+    try {
+      const res = await refreshPayrollRun(selectedDate);
+      alert(`Run updated: ${res.invoiceCount} invoices, new total $${res.grandTotal.toFixed(2)}.`);
+      router.refresh();
+    } catch (e: any) {
+      alert(e.message || "Failed to update the run.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleWithdrawRun = async () => {
+    if (!confirm("Withdraw this payroll run? It goes back to un-submitted so you can redo it (notes, screenshots, totals) and submit again.")) return;
+    setBusy(true);
+    try {
+      await withdrawPayrollRun(selectedDate);
+      router.refresh();
+    } catch (e: any) {
+      alert(e.message || "Failed to withdraw the run.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleAddScreenshot = async (file: File | null | undefined) => {
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      alert("Please use a PNG, JPG, or WEBP image.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")) : ".png";
+      const safeName = `payroll-${selectedDate}-${Date.now()}-extra${ext.replace(/[^a-zA-Z0-9.]/g, "")}`;
+      const blob = await upload(`payroll/${safeName}`, file, {
+        access: "private",
+        handleUploadUrl: "/api/payroll/upload",
+      });
+      await addPayrollRunScreenshot(selectedDate, { url: blob.url, name: file.name });
+      router.refresh();
+    } catch (e: any) {
+      alert(e.message || "Failed to add the screenshot.");
     } finally {
       setBusy(false);
     }
@@ -286,15 +336,36 @@ export default function PayrollClient({
                 </div>
               )}
             </div>
-            {(currentUserRole === "PAYROLL_APPROVER" || isAdmin) && (
-              <button
-                onClick={handleApprove}
-                disabled={busy}
-                className="bg-green-700 hover:bg-green-800 text-white font-bold px-5 py-2.5 rounded-lg disabled:opacity-50"
-              >
-                Approve Payroll
-              </button>
-            )}
+            <div className="flex flex-col gap-2 items-end">
+              {(currentUserRole === "PAYROLL_APPROVER" || isAdmin) && (
+                <button
+                  onClick={handleApprove}
+                  disabled={busy}
+                  className="bg-green-700 hover:bg-green-800 text-white font-bold px-5 py-2.5 rounded-lg disabled:opacity-50"
+                >
+                  Approve Payroll
+                </button>
+              )}
+              {isAdmin && (
+                <div className="flex gap-2 text-xs">
+                  <button onClick={handleRefreshRun} disabled={busy} className="text-amber-800 underline disabled:opacity-50">
+                    Update totals
+                  </button>
+                  <label className="text-amber-800 underline cursor-pointer">
+                    Add screenshot
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={(e) => { handleAddScreenshot(e.target.files?.[0]); e.target.value = ""; }}
+                    />
+                  </label>
+                  <button onClick={handleWithdrawRun} disabled={busy} className="text-red-700 underline disabled:opacity-50">
+                    Withdraw run
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ) : isAdmin ? (

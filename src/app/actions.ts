@@ -409,11 +409,13 @@ export async function createInvoice(invoiceData: NewInvoiceData) {
   // date before deciding how many of this invoice's hours are payable.
   if (userRecord.enforceHoursCap && userRecord.expectedHours != null) {
     const payDay = paymentDate.toISOString().slice(0, 10);
+    // DEFERRED invoices were capped against their original period and don't
+    // consume the new period's allowance
     const siblings = await db.query.invoices.findMany({
       where: and(
         eq(invoices.userId, userId),
         sql`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD') = ${payDay}`,
-        sql`${invoices.status} != 'DRAFT'`
+        sql`${invoices.status} NOT IN ('DRAFT', 'DEFERRED')`
       ),
     });
     const otherHours = siblings.reduce((s, i) => s + i.totalHours, 0);
@@ -545,7 +547,7 @@ export async function updateInvoice(invoiceData: UpdateInvoiceData) {
           where: and(
             eq(invoices.userId, existingInvoice.userId),
             sql`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD') = ${payDay}`,
-            sql`${invoices.status} != 'DRAFT'`,
+            sql`${invoices.status} NOT IN ('DRAFT', 'DEFERRED')`,
             sql`${invoices.id} != ${invoiceData.id}`
           ),
         });
@@ -739,12 +741,33 @@ export async function deferInvoice(invoiceId: string) {
     throw new Error("Could not determine the next pay cycle.");
   }
 
+  // A deferred invoice is paid under the cap of the period it was ORIGINALLY
+  // worked in: compute the remaining do-not-exceed allowance from the original
+  // pay date and freeze that amount. It never consumes the new period's cap.
+  const owner = await db.query.users.findFirst({ where: eq(users.id, invoiceRecord.userId) });
+  let deferredCost = invoiceRecord.totalCost;
+  if (owner?.enforceHoursCap && owner.expectedHours != null && owner.payType !== "FLAT") {
+    const originalDay = invoiceRecord.invoiceDate.toISOString().slice(0, 10);
+    const siblings = await db.query.invoices.findMany({
+      where: and(
+        eq(invoices.userId, invoiceRecord.userId),
+        sql`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD') = ${originalDay}`,
+        sql`${invoices.status} NOT IN ('DRAFT')`,
+        sql`${invoices.id} != ${invoiceId}`
+      ),
+    });
+    const otherHours = siblings.reduce((s, i) => s + i.totalHours, 0);
+    const remaining = Math.max(0, owner.expectedHours - otherHours);
+    deferredCost = Math.min(invoiceRecord.totalHours, remaining) * owner.hourlyRate;
+  }
+
   // Mark it DEFERRED and move it to the next pay cycle. It stays submitted
   // and is included (and approvable) in the next payroll run automatically.
   await db.update(invoices).set({
     invoiceDate: nextPeriod.invoiceDate,
     dueDate: nextPeriod.submissionDeadline,
     status: "DEFERRED",
+    totalCost: deferredCost,
   }).where(eq(invoices.id, invoiceId));
 
   // Let the contractor know their payment moved
@@ -904,8 +927,10 @@ async function repriceUnapprovedInvoices(userId: string) {
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!user) return;
 
+  // DEFERRED invoices stay frozen at the amount computed against their
+  // original period — never reprice them with new settings.
   const open = await db.query.invoices.findMany({
-    where: and(eq(invoices.userId, userId), sql`${invoices.status} != 'APPROVED'`),
+    where: and(eq(invoices.userId, userId), sql`${invoices.status} NOT IN ('APPROVED', 'DEFERRED')`),
   });
   if (open.length === 0) return;
 
@@ -1413,6 +1438,75 @@ export async function submitPayrollRun(
 
   revalidatePath("/admin/payroll");
   return { approversNotified: approvers.length, deadline: deadlineText };
+}
+
+// Recompute a pending run's totals from the invoices as they stand now, and
+// let the approver know the numbers changed.
+export async function refreshPayrollRun(payDate: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Forbidden: Only an Admin can modify a payroll run.");
+  }
+  const run = await db.query.payrollRuns.findFirst({ where: eq(payrollRuns.payDate, payDate) });
+  if (!run) throw new Error("No payroll run exists for this date.");
+  if (run.status === "APPROVED") throw new Error("This run is already approved and can't be modified.");
+
+  const dayMatch = sql`to_char(${invoices.invoiceDate} at time zone 'America/New_York', 'YYYY-MM-DD') = ${payDate}`;
+  const dayInvoices = (await db.query.invoices.findMany({ where: dayMatch })).filter((i) => i.status !== "DRAFT");
+  const invoiceTotal = dayInvoices.reduce((s, i) => s + i.totalCost, 0);
+  const activeStaff = await db.query.fixedStaff.findMany({ where: eq(fixedStaff.active, true) });
+  const fixedStaffTotal = activeStaff.reduce((s, m) => s + m.monthlyAmount, 0);
+
+  await db.update(payrollRuns).set({
+    invoiceTotal,
+    fixedStaffTotal,
+    grandTotal: invoiceTotal + fixedStaffTotal,
+    invoiceCount: dayInvoices.length,
+  }).where(eq(payrollRuns.id, run.id));
+
+  // Nudge approvers in-app that the numbers changed
+  const approvers = await db.query.users.findMany({
+    where: and(eq(users.role, "PAYROLL_APPROVER"), eq(users.archived, false)),
+  });
+  for (const a of approvers) {
+    await db.insert(notifications).values({
+      userId: a.id,
+      message: `The payroll run for ${payDate} was updated — please review the latest numbers before approving.`,
+    });
+  }
+
+  revalidatePath("/admin/payroll");
+  return { grandTotal: invoiceTotal + fixedStaffTotal, invoiceCount: dayInvoices.length };
+}
+
+// Attach another screenshot to a pending run (uploaded client-side to Blob).
+export async function addPayrollRunScreenshot(payDate: string, attachment: { url: string; name: string }) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Forbidden: Only an Admin can modify a payroll run.");
+  }
+  if (!attachment.url.includes(".blob.vercel-storage.com/")) {
+    throw new Error("Invalid screenshot URL.");
+  }
+  const run = await db.query.payrollRuns.findFirst({ where: eq(payrollRuns.payDate, payDate) });
+  if (!run) throw new Error("No payroll run exists for this date.");
+  if (run.status === "APPROVED") throw new Error("This run is already approved and can't be modified.");
+  const attachments = [...(run.attachments || []), attachment].slice(0, 10);
+  await db.update(payrollRuns).set({ attachments }).where(eq(payrollRuns.id, run.id));
+  revalidatePath("/admin/payroll");
+}
+
+// Pull back a pending run entirely so it can be re-submitted fresh.
+export async function withdrawPayrollRun(payDate: string) {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    throw new Error("Forbidden: Only an Admin can modify a payroll run.");
+  }
+  const run = await db.query.payrollRuns.findFirst({ where: eq(payrollRuns.payDate, payDate) });
+  if (!run) throw new Error("No payroll run exists for this date.");
+  if (run.status === "APPROVED") throw new Error("This run is already approved and can't be withdrawn.");
+  await db.delete(payrollRuns).where(eq(payrollRuns.id, run.id));
+  revalidatePath("/admin/payroll");
 }
 
 export async function approvePayrollRun(payDate: string) {
